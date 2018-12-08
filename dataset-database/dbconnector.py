@@ -21,8 +21,8 @@ class AbstractDbConnector(object):
         
 class JsonDbConnector(AbstractDbConnector):
     
-    def __init__(self):
-        self.database_path = "database.json"
+    def __init__(self, path):
+        self.database_path = os.path.join(path, "database.json")
         if os.path.exists(self.database_path):
             infile = open(self.database_path)
             self.database = json.loads(infile.read())
@@ -41,8 +41,12 @@ class JsonDbConnector(AbstractDbConnector):
     def select(self, from_table, where_id):
         return self.database["tables"][from_table].get(where_id, None)
     
-    def select_all(self, from_table):
-        return self.database["tables"][from_table].values()
+    def select_all(self, from_table, where=None):
+        entries = self.database["tables"][from_table].values()
+        if where != None:
+            key, value = where
+            entries = [entry for entry in entries if entry[key] == value]
+        return entries
     
     def insert(self, into_table, id, values):
         self.database["tables"][into_table][id] = values

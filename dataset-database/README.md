@@ -8,7 +8,6 @@
 python dsdb_cli.py init
 ```
 
-
 ### Update existing database with ETL data
 
 ```bash
@@ -25,6 +24,12 @@ python dsdb_cli.py filterpcds
 
 ```bash
 python dsdb_cli.py sortpcds
+```
+
+### Reject a QR-Code.
+
+```bash
+python dsdb_cli.py rejectqrcode SAM-GOV-041
 ```
 
 ## How to use Python-API

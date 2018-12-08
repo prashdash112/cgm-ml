@@ -15,8 +15,9 @@ import cv2
 import pprint
 
     
-commands = ["init", "update", "filterpcds", "filterjpgs", "sortpcds", "sortjpgs"]
-db_connector = dbconnector.JsonDbConnector()
+commands = ["init", "update", "filterpcds", "filterjpgs", "sortpcds", "sortjpgs", "rejectqrcode"]
+db_connector_path = "../../data/preprocessed"
+db_connector = dbconnector.JsonDbConnector(db_connector_path)
 args = None
 default_etl_path = "../../data/etl/2018_10_31_14_19_42"
 
@@ -26,19 +27,18 @@ def main():
     execute_command()
     
     
-    
 # Parsing command-line arguments.
 
 def parse_args():
     # Parse arguments from command-line.
     global args
     parser = argparse.ArgumentParser(description="Interact with the dataset database.")
-    parser.add_argument("command", metavar='command', type=str, help="command to perform")
+    parser.add_argument("command", metavar='command', type=str, help="command to perform", nargs='+')
     #parser.add_argument("--path", action="store_const", default="../../data/etl/2018_10_31_14_19_42", const=666)
     parser.add_argument('--path', help="The folder of alignments",
         action=FullPaths, type=is_dir, default=default_etl_path)
     args = parser.parse_args()
-    print(args)
+    #print(args)
     
 
 class FullPaths(argparse.Action):
@@ -59,24 +59,31 @@ def is_dir(dirname):
 
 def execute_command():
     result = None
-    if args.command not in commands:
-        print("ERROR: Invalid command {}! Valid commands are {}.".format(args.command, commands))
+    
+    first_command = args.command[0]
+    
+    if first_command not in commands:
+        print("ERROR: Invalid command {}! Valid commands are {}.".format(first_command, commands))
         # TODO print list of commands
-    elif args.command == "init":
+    elif first_command == "init":
         result = execute_command_init()
-    elif args.command == "update":
+    elif first_command == "update":
         result = execute_command_update()
-    elif args.command == "filterpcds":
+    elif first_command == "filterpcds":
         result = execute_command_filterpcds()
-    elif args.command == "filterjpgs":
+    elif first_command == "filterjpgs":
         result = execute_command_filterjpgs()
-    elif args.command == "sortpcds":
+    elif first_command == "sortpcds":
         result = execute_command_sortpcds(sort_key="number_of_points", reverse=True)
-    elif args.command == "sortjpgs":
+    elif first_command == "sortjpgs":
         result = execute_command_sortjpgs()
+    elif first_command == "rejectqrcode":
+        assert len(args.command) == 2
+        result = execute_command_rejectqrcode(args.command[1])
     else:
         raise Exception("Unexpected {}.".format(args.command))
         
+    # Plot the result if there is one.
     if result != None:
         if type(result) == dict:
             #pp = pprint.PrettyPrinter(indent=4)
@@ -95,8 +102,6 @@ def execute_command_update():
     print("Updating DB...")
     
     # Process PCDs.
-    # TODO error
-    # TODO rejected_by_user
     glob_search_path = os.path.join(args.path, "**/*.pcd")
     pcd_paths = glob.glob(glob_search_path)
     print("Found {} PCDs.".format(len(pcd_paths)))
@@ -147,14 +152,26 @@ def execute_command_update():
 
 
 def get_default_values(path):
-    last_updated = time.time()
-    last_updated_readable = datetime.datetime.fromtimestamp(last_updated).strftime('%Y-%m-%d %H:%M:%S')
+    qrcode = path.split("/")[-4]
+    target_file_path = os.path.join(*path.split("/")[:-2], "target.txt")
+    last_updated, last_updated_readable = get_last_updated()
+    target_file = open(target_file_path, "r")
+    targets = target_file.read().replace("\n", "")
+    target_file.close()
+    
     values = {}
     values["path"] = path
+    values["qrcode"] = qrcode
+    values["targets"] = targets
     values["last_updated"] = last_updated
     values["last_updated_readable"] = last_updated_readable
     values["rejected_by_expert"] = False
     return values
+    
+def get_last_updated():
+    last_updated = time.time()
+    last_updated_readable = datetime.datetime.fromtimestamp(last_updated).strftime('%Y-%m-%d %H:%M:%S')
+    return last_updated, last_updated_readable
     
     
 def get_pointcloud_values(path):
@@ -273,11 +290,43 @@ def execute_command_sortpcds(sort_key, sort_reverse):
     sorted_entries = sorted(entries, key=lambda x: x[sort_key], reverse=sort_reverse)
     
     return { "results" : sorted_entries }
-        
+    
         
 def execute_command_sortjpgs(sort_key, reverse):
     assert False, "Implement!"
-        
+
+
+def execute_command_rejectqrcode(qrcode):
+    print("Rejecting QR-code...")
+    
+    # Reject PCDs.
+    entries = db_connector.select_all(from_table="pcd_table", where=("qrcode", qrcode))
+    for entry in entries:
+        if entry["rejected_by_expert"] == True:
+            print("{} already rejected. Skipped.".format(entry["id"]))
+            continue
+        entry["rejected_by_expert"] = True
+        last_updated, last_updated_readable = get_last_updated()
+        entry["last_updated"] = last_updated
+        entry["last_updated_readable"] = last_updated_readable
+        db_connector.insert(into_table="pcd_table", id=entry["id"], values=entry)
+        print("{} rejected.".format(entry["id"]))
+    db_connector.synchronize()
+
+    # Reject JPGs.
+    entries = db_connector.select_all(from_table="jpg_table", where=("qrcode", qrcode))
+    for entry in entries:
+        if entry["rejected_by_expert"] == True:
+            print("{} already rejected. Skipped.".format(entry["id"]))
+            continue
+        entry["rejected_by_expert"] = True
+        last_updated, last_updated_readable = get_last_updated()
+        entry["last_updated"] = last_updated
+        entry["last_updated_readable"] = last_updated_readable
+        db_connector.insert(into_table="jpg_table", id=entry["id"], values=entry)
+        print("{} rejected.".format(entry["id"]))
+    db_connector.synchronize()
+
         
 if __name__ == "__main__":
     main()
