@@ -32,6 +32,12 @@ python dsdb_cli.py sortpcds
 python dsdb_cli.py rejectqrcode SAM-GOV-041
 ```
 
+### Create a filtered and preprocessed dataset.
+
+```bash
+python dsdb_cli.py preprocess
+```
+
 ## How to use Python-API
 
 ### Filter PCDs.

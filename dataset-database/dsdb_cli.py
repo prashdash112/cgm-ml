@@ -13,14 +13,15 @@ import numpy as np
 import progressbar
 import cv2
 import pprint
+import pickle
 
     
-commands = ["init", "update", "filterpcds", "filterjpgs", "sortpcds", "sortjpgs", "rejectqrcode"]
+commands = ["init", "update", "filterpcds", "filterjpgs", "sortpcds", "sortjpgs", "rejectqrcode", "preprocess"]
 db_connector_path = "../../data/preprocessed"
 db_connector = dbconnector.JsonDbConnector(db_connector_path)
 args = None
 default_etl_path = "../../data/etl/2018_10_31_14_19_42"
-
+preprocessed_root_path = "../../data/preprocessed"
 
 def main():
     parse_args()
@@ -80,6 +81,8 @@ def execute_command():
     elif first_command == "rejectqrcode":
         assert len(args.command) == 2
         result = execute_command_rejectqrcode(args.command[1])
+    elif first_command == "preprocess":
+        result = execute_command_preprocess()
     else:
         raise Exception("Unexpected {}.".format(args.command))
         
@@ -327,6 +330,32 @@ def execute_command_rejectqrcode(qrcode):
         print("{} rejected.".format(entry["id"]))
     db_connector.synchronize()
 
+def execute_command_preprocess():
+    print("Preprocessing data-set...")
+    
+    # Create the base-folder.
+    datetime_path = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
+    base_path = os.path.join(preprocessed_root_path, datetime_path)
+    os.mkdir(base_path)
+    
+    entries = execute_command_filterpcds()["results"]
+    print("Found {} PCDs. Processing...".format(len(entries)))
+    bar = progressbar.ProgressBar(max_value=len(entries))
+    for index, entry in enumerate(entries):
+        bar.update(index)
+        pointcloud = utils.load_pcd_as_ndarray(entry["path"])
+        targets = np.array([float(value) for value in entry["targets"].split(",")])
+        qrcode = entry["qrcode"]
+        pickle_filename = entry["id"].replace(".pcd", ".p")
+        qrcode_path = os.path.join(base_path, qrcode)
+        if os.path.exists(qrcode_path) == False:
+            os.mkdir(qrcode_path)
+        pickle_output_path = os.path.join(qrcode_path, pickle_filename)
+        pickle.dump((pointcloud, targets), open(pickle_output_path, "wb"))
+    bar.finish()
+    
+    #entries = execute_command_filterjpgs()
+    #print("Found {} JPGs. Processing...".format(len(entries)))
         
 if __name__ == "__main__":
     main()
