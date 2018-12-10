@@ -15,8 +15,10 @@ import cv2
 import pprint
 import pickle
 
-    
-commands = ["init", "update", "filterpcds", "filterjpgs", "sortpcds", "sortjpgs", "rejectqrcode", "preprocess"]
+# TODO acceptqrcode
+# TODO listrejected
+     
+commands = ["init", "update", "filterpcds", "filterjpgs", "sortpcds", "sortjpgs", "rejectqrcode", "acceptqrcode", "listrejected", "preprocess"]
 db_connector_path = "../../data/preprocessed"
 db_connector = dbconnector.JsonDbConnector(db_connector_path)
 args = None
@@ -81,6 +83,11 @@ def execute_command():
     elif first_command == "rejectqrcode":
         assert len(args.command) == 2
         result = execute_command_rejectqrcode(args.command[1])
+    elif first_command == "acceptqrcode":
+        assert len(args.command) == 2
+        result = execute_command_acceptqrcode(args.command[1])
+    elif first_command == "listrejected":
+        result = execute_command_listrejected()
     elif first_command == "preprocess":
         result = execute_command_preprocess()
     else:
@@ -329,6 +336,47 @@ def execute_command_rejectqrcode(qrcode):
         db_connector.insert(into_table="jpg_table", id=entry["id"], values=entry)
         print("{} rejected.".format(entry["id"]))
     db_connector.synchronize()
+
+def execute_command_acceptqrcode(qrcode):
+    print("Rejecting QR-code...")
+    
+    # Accept PCDs.
+    entries = db_connector.select_all(from_table="pcd_table", where=("qrcode", qrcode))
+    for entry in entries:
+        if entry["rejected_by_expert"] == False:
+            print("{} already accepted. Skipped.".format(entry["id"]))
+            continue
+        entry["rejected_by_expert"] = False
+        last_updated, last_updated_readable = get_last_updated()
+        entry["last_updated"] = last_updated
+        entry["last_updated_readable"] = last_updated_readable
+        db_connector.insert(into_table="pcd_table", id=entry["id"], values=entry)
+        print("{} accepted.".format(entry["id"]))
+    db_connector.synchronize()
+
+    # Accept JPGs.
+    entries = db_connector.select_all(from_table="jpg_table", where=("qrcode", qrcode))
+    for entry in entries:
+        if entry["rejected_by_expert"] == False:
+            print("{} already accepted. Skipped.".format(entry["id"]))
+            continue
+        entry["rejected_by_expert"] = False
+        last_updated, last_updated_readable = get_last_updated()
+        entry["last_updated"] = last_updated
+        entry["last_updated_readable"] = last_updated_readable
+        db_connector.insert(into_table="jpg_table", id=entry["id"], values=entry)
+        print("{} accepted.".format(entry["id"]))
+    db_connector.synchronize()
+ 
+
+def execute_command_listrejected():
+    
+    return {
+        "rejected_pcds": db_connector.select_all(from_table="pcd_table", where=("rejected_by_expert", True)),
+        "rejected_jpgs": db_connector.select_all(from_table="jpg_table", where=("rejected_by_expert", True))
+    }
+    
+    
 
 def execute_command_preprocess():
     print("Preprocessing data-set...")
