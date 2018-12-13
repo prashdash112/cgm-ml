@@ -15,14 +15,12 @@ import cv2
 import pprint
 import pickle
 
-# TODO acceptqrcode
-# TODO listrejected
      
 commands = ["init", "update", "filterpcds", "filterjpgs", "sortpcds", "sortjpgs", "rejectqrcode", "acceptqrcode", "listrejected", "preprocess"]
 db_connector_path = "../../data/preprocessed"
 db_connector = dbconnector.JsonDbConnector(db_connector_path)
 args = None
-default_etl_path = "../../data/etl/2018_10_31_14_19_42"
+default_etl_path = "../../data/etl/2018_12_12_20_16_43/"
 preprocessed_root_path = "../../data/preprocessed"
 
 def main():
@@ -114,6 +112,7 @@ def execute_command_update():
     # Process PCDs.
     glob_search_path = os.path.join(args.path, "**/*.pcd")
     pcd_paths = glob.glob(glob_search_path)
+    pcd_paths = []  # TODO remove this
     print("Found {} PCDs.".format(len(pcd_paths)))
     insert_count = 0
     bar = progressbar.ProgressBar(max_value=len(pcd_paths))
@@ -133,14 +132,13 @@ def execute_command_update():
     print("Inserted {} new entries.".format(insert_count))
     
     # Process JPGs.
-    # TODO blurriness
     # TODO openpose
     # TODO ...
     glob_search_path = os.path.join(args.path, "**/*.jpg")
     jpg_paths = glob.glob(glob_search_path)
     print("Found {} JPGs.".format(len(jpg_paths)))
     insert_count = 0
-    bar = progressbar.ProgressBar(max_value=len(pcd_paths))
+    bar = progressbar.ProgressBar(max_value=len(jpg_paths))
     for index, path in enumerate(jpg_paths):
         bar.update(index)
         id = os.path.basename(path)
@@ -149,7 +147,6 @@ def execute_command_update():
             values = { "id": id }
             values.update(get_default_values(path))
             values.update(get_image_values(path))
-            
             db_connector.insert(into_table="jpg_table", id=id, values=values)
             insert_count += 1
         if index % 50 == 0:
@@ -176,7 +173,9 @@ def get_default_values(path):
     values["last_updated"] = last_updated
     values["last_updated_readable"] = last_updated_readable
     values["rejected_by_expert"] = False
+    
     return values
+    
     
 def get_last_updated():
     last_updated = time.time()
@@ -228,8 +227,8 @@ def get_image_values(path):
     error_message = ""
     try:
         image = cv2.imread(path)
-        width = image.size[0]
-        height = image.size[0]
+        width = image.shape[0]
+        height = image.shape[1]
         blur_variance = get_blur_variance(image)
     except Exception as e:
         print("\n", path, e)
@@ -289,8 +288,35 @@ def execute_command_filterpcds(
     return { "results" : result_entries }
 
         
-def execute_command_filterjpgs():
-    assert False, "Implement!"
+def execute_command_filterjpgs(
+    blur_variance_threshold=100.0,
+    remove_errors=True, 
+    remove_rejects=True, 
+    sort_key=None, 
+    sort_reverse=False):
+    
+    print("Filtering DB...")
+    
+    entries = db_connector.select_all(from_table="jpg_table")
+    result_entries = []
+    for values in entries:
+        
+        # Remove that is too blurry.
+        if int(values["blur_variance"]) < blur_variance_threshold:
+            continue
+        # Remove everything that has an error.
+        if remove_errors == True and bool(values["error"]) == True:
+            continue
+        # Remove everything that has been rejected by an expert.
+        if remove_rejects == True and bool(values["rejected_by_expert"]) == True:
+            continue
+        result_entries.append(values)
+        
+    if sort_key != None:
+        print("Sorting", sort_key, sort_reverse)
+        result_entries = list(sorted(result_entries, key=lambda x: float(x[sort_key]), reverse=sort_reverse))   
+    
+    return { "results" : result_entries }
         
         
 def execute_command_sortpcds(sort_key, sort_reverse):
@@ -337,6 +363,7 @@ def execute_command_rejectqrcode(qrcode):
         print("{} rejected.".format(entry["id"]))
     db_connector.synchronize()
 
+    
 def execute_command_acceptqrcode(qrcode):
     print("Rejecting QR-code...")
     
@@ -375,7 +402,6 @@ def execute_command_listrejected():
         "rejected_pcds": db_connector.select_all(from_table="pcd_table", where=("rejected_by_expert", True)),
         "rejected_jpgs": db_connector.select_all(from_table="jpg_table", where=("rejected_by_expert", True))
     }
-    
     
 
 def execute_command_preprocess():
