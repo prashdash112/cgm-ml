@@ -112,7 +112,6 @@ def execute_command_update():
     # Process PCDs.
     glob_search_path = os.path.join(args.path, "**/*.pcd")
     pcd_paths = glob.glob(glob_search_path)
-    pcd_paths = []  # TODO remove this
     print("Found {} PCDs.".format(len(pcd_paths)))
     insert_count = 0
     bar = progressbar.ProgressBar(max_value=len(pcd_paths))
