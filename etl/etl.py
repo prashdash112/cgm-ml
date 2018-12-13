@@ -53,15 +53,15 @@ class ETL:
         training_samples = 0
         # TODO Work in progress to load data and send it to writer
         for qrcode in qrcode_dict:
-            log.info("Processing QR code %s" % qrcode)
-            log.info("Number of training samples for qrcode %s is %d" % (qrcode, len(qrcode_dict[qrcode])))
+            log.debug("Processing QR code %s" % qrcode)
+            log.debug("Number of training samples for qrcode %s is %d" % (qrcode, len(qrcode_dict[qrcode])))
             for data in qrcode_dict[qrcode]:
                 try:
                     targets, jpg_paths, pcd_paths, timestamp = data
                     y_output = targets
                     self.data_writer.write(qrcode, y_output, timestamp, pcd_paths, jpg_paths)
                     training_samples += 1
-                    log.info("Completed processing QR code %s with timestamp %s " % (qrcode, str(timestamp)))
+                    log.debug("Completed processing QR code %s with timestamp %s " % (qrcode, str(timestamp)))
                 except Exception as e:
                     log.exception("Error in processing QR code %s" % qrcode)
             counter_qrcode += 1

@@ -41,7 +41,7 @@ class DataWriter:
         # copy over the pcd paths
         pcd_dir = os.path.join(subdir, 'pcd')
         self.makedirs_if_not_exists(pcd_dir)
-        log.info("Copying pcd files for qrcode %s" % qrcode)
+        log.debug("Copying pcd files for qrcode %s" % qrcode)
         for pcd_path in pcd_paths:
             fname = os.path.basename(pcd_path)
             dst = os.path.join(pcd_dir, fname)
@@ -50,7 +50,7 @@ class DataWriter:
         # copy over the pcd paths
         jpg_dir = os.path.join(subdir, 'jpg')
         self.makedirs_if_not_exists(jpg_dir)
-        log.info("Copying jpg files for qrcode %s" % qrcode)
+        log.debug("Copying jpg files for qrcode %s" % qrcode)
         for jpg_path in jpg_paths:
             fname = os.path.basename(jpg_path)
             dst = os.path.join(jpg_dir, fname)
