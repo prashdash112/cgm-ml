@@ -122,17 +122,8 @@ Data access is provided on as-needed basis following signature of the Welthunger
 Maintain Data Secrecy Agreement. If you need data access (e.g. to train your machine learning models),
 please contact [Markus Matiaschek](mailto:mmatiaschek@gmail.com) for details.
 
-### Preparing training data
-* Run the script `python create_datasets.py`
-
-### Training the models
-* Run the script `python train_nets.py`
-
-*This currently takes around 6 hours to run on a local NVIDIA GTX 1080 Ti.*
-
-### Evaluating the results
-TODO
-
+### Data preprocessing
+* Read the README at dataset-database.
 
 ## Contributing
 
