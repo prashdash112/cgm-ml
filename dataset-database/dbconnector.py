@@ -54,4 +54,3 @@ class JsonDbConnector(AbstractDbConnector):
     def synchronize(self):
         with open(self.database_path, "w") as outfile:
             json.dump(self.database, outfile)
-

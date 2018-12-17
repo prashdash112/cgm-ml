@@ -29,7 +29,7 @@ class PreprocessedDataGenerator(object):
         self,
         dataset_path,
         input_type,
-        #output_targets,
+        output_targets=["height"],
         filter=None,
         sequence_length=0,
         image_target_shape=(160, 90),
@@ -69,10 +69,22 @@ class PreprocessedDataGenerator(object):
         if input_type == "voxelgrid":
             assert len(voxelgrid_target_shape) == 3, "voxelgrid_target_shape must be 3-dimensional: " + str(voxelgrid_target_shape)
 
+
+        # Set the dataset-path.
+        if input_type == "image":
+            self.dataset_path = os.path.join(dataset_path, "jpg")
+        elif input_type == "voxelgrid":
+            self.dataset_path = os.path.join(dataset_path, "pcd")
+        elif input_type == "pointcloud":
+            self.dataset_path = os.path.join(dataset_path, "pcd")
+        elif input_type == "rgbmap":
+            self.dataset_path = os.path.join(dataset_path, "pcd")
+        else:
+            raise Exception("Unknown input_type: " + class_self.input_type)
+        
         # Assign the instance-variables.
-        self.dataset_path = dataset_path
         self.input_type = input_type
-        #self.output_targets = output_targets
+        self.output_targets = output_targets
         self.filter = filter
         self.sequence_length = sequence_length
         self.image_target_shape = image_target_shape
@@ -128,7 +140,10 @@ class PreprocessedDataGenerator(object):
         self.qrcodes_dictionary = {}
         for qrcode in self.qrcodes:
             # Getting all files that belong to the QR-code.
-            preprocessed_paths = glob.glob(os.path.join(self.dataset_path, qrcode, "*.p"))
+            glob_search_path = os.path.join(self.dataset_path, qrcode)
+            preprocessed_paths = glob.glob(os.path.join(glob_search_path, "*.p"))
+            
+            assert len(preprocessed_paths) != 0, "ERROR: No files found at {}!".format(glob_search_path)
             
             # Filter the paths if specified.
             if self.filter != None:
@@ -142,6 +157,7 @@ class PreprocessedDataGenerator(object):
 
             # Done.
             self.qrcodes_dictionary[qrcode] = preprocessed_paths
+            
 
 
     def analyze_files(self):
@@ -303,7 +319,7 @@ def create_datagenerator_from_parameters(dataset_path, dataset_parameters):
     datagenerator = PreprocessedDataGenerator(
         dataset_path=dataset_path,
         input_type=dataset_parameters["input_type"],
-        #output_targets=dataset_parameters["output_targets"],
+        output_targets=dataset_parameters["output_targets"],
         filter=dataset_parameters.get("filter", None),
         sequence_length=dataset_parameters.get("sequence_length", 0),
         voxelgrid_target_shape=dataset_parameters.get("voxelgrid_target_shape", None),
@@ -362,7 +378,7 @@ def generate_data(class_self, size, qrcodes_to_use, verbose, output_queue):
             if len(class_self.qrcodes_dictionary[qrcode]) > 0:
                 preprocessed_path = random.choice(class_self.qrcodes_dictionary[qrcode])
                 with open(preprocessed_path, "rb") as file:
-                    (pointcloud, targets) = pickle.load(file)
+                    (pointcloud, targets) = load_pointcloud_and_target(file, class_self.output_targets)
                     assert pointcloud.shape[0] != 0, "Empty pointcloud in file {}.".format(preprocessed_path)
 
                 x_input = get_input(class_self, pointcloud)
@@ -386,7 +402,7 @@ def generate_data(class_self, size, qrcodes_to_use, verbose, output_queue):
             x_input, file_path = [], []
             for preprocessed_path in preprocessed_paths:
                 with open(preprocessed_path, "rb") as file:
-                    (pointcloud, targets) = pickle.load(file)
+                    (pointcloud, targets) = load_pointcloud_and_target(file, class_self.output_targets)
                     assert pointcloud.shape[0] != 0, "Empty pointcloud in file {}.".format(preprocessed_path)
                     try:
                         x_input.append(get_input(class_self, pointcloud))
@@ -431,6 +447,14 @@ def generate_data(class_self, size, qrcodes_to_use, verbose, output_queue):
     else:
         return return_values
 
+def load_pointcloud_and_target(file, output_targets):
+    (pointcloud, targets) = pickle.load(file)
+    if output_targets == ["height"]:
+        targets = targets[0:1]
+    elif output_targets == ["weight"]:
+        targets = targets[1:]
+    return (pointcloud, targets)
+    
 
 def get_input(class_self, pointcloud):
     

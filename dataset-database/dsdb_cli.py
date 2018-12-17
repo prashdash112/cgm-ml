@@ -106,7 +106,7 @@ def execute_command_init():
     print("Done.")
 
     
-def execute_command_update():
+def execute_command_update(update_default_values=False):
     print("Updating DB...")
     
     # Process PCDs.
@@ -114,6 +114,7 @@ def execute_command_update():
     pcd_paths = glob.glob(glob_search_path)
     print("Found {} PCDs.".format(len(pcd_paths)))
     insert_count = 0
+    update_count = 0
     bar = progressbar.ProgressBar(max_value=len(pcd_paths))
     for index, path in enumerate(pcd_paths):
         bar.update(index)
@@ -125,11 +126,17 @@ def execute_command_update():
             values.update(get_pointcloud_values(path))
             db_connector.insert(into_table="pcd_table", id=id, values=values)
             insert_count += 1
+        elif update_default_values == True:
+            values = result
+            values.update(get_default_values(path))
+            db_connector.insert(into_table="pcd_table", id=id, values=values)
+            update_count += 1
         if index % 50 == 0:
             db_connector.synchronize()
     bar.finish()
     print("Inserted {} new entries.".format(insert_count))
-    
+    print("Updated {} entries.".format(update_count))
+
     # Process JPGs.
     # TODO openpose
     # TODO ...
@@ -137,6 +144,7 @@ def execute_command_update():
     jpg_paths = glob.glob(glob_search_path)
     print("Found {} JPGs.".format(len(jpg_paths)))
     insert_count = 0
+    update_count = 0
     bar = progressbar.ProgressBar(max_value=len(jpg_paths))
     for index, path in enumerate(jpg_paths):
         bar.update(index)
@@ -148,10 +156,17 @@ def execute_command_update():
             values.update(get_image_values(path))
             db_connector.insert(into_table="jpg_table", id=id, values=values)
             insert_count += 1
+        elif update_default_values == True:
+            values = result
+            values.update(get_default_values(path))
+            db_connector.insert(into_table="jpg_table", id=id, values=values)
+            update_count += 1
         if index % 50 == 0:
             db_connector.synchronize()
     bar.finish()
     print("Inserted {} new entries.".format(insert_count))
+    print("Updated {} entries.".format(update_count))
+
        
     db_connector.synchronize()
     print("Done.")
@@ -403,32 +418,60 @@ def execute_command_listrejected():
     }
     
 
-def execute_command_preprocess():
+def execute_command_preprocess(preprocess_pcds=True, preprocess_jpgs=False):
     print("Preprocessing data-set...")
     
     # Create the base-folder.
     datetime_path = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
     base_path = os.path.join(preprocessed_root_path, datetime_path)
     os.mkdir(base_path)
+    os.mkdir(os.path.join(base_path, "pcd"))
+    os.mkdir(os.path.join(base_path, "jpg"))
     
-    entries = execute_command_filterpcds()["results"]
-    print("Found {} PCDs. Processing...".format(len(entries)))
-    bar = progressbar.ProgressBar(max_value=len(entries))
-    for index, entry in enumerate(entries):
-        bar.update(index)
-        pointcloud = utils.load_pcd_as_ndarray(entry["path"])
-        targets = np.array([float(value) for value in entry["targets"].split(",")])
-        qrcode = entry["qrcode"]
-        pickle_filename = entry["id"].replace(".pcd", ".p")
-        qrcode_path = os.path.join(base_path, qrcode)
-        if os.path.exists(qrcode_path) == False:
-            os.mkdir(qrcode_path)
-        pickle_output_path = os.path.join(qrcode_path, pickle_filename)
-        pickle.dump((pointcloud, targets), open(pickle_output_path, "wb"))
-    bar.finish()
+    # Process the filtered PCDs.
+    if preprocess_pcds == True:
+        entries = execute_command_filterpcds()["results"]
+        print("Found {} PCDs. Processing...".format(len(entries)))
+        bar = progressbar.ProgressBar(max_value=len(entries))
+        for index, entry in enumerate(entries):
+            bar.update(index)
+            path = entry["path"]
+            if os.path.exists(path) == False:
+                print("\n", "File {} does not exist!".format(path), "\n")
+                continue
+            pointcloud = utils.load_pcd_as_ndarray(path)
+            targets = np.array([float(value) for value in entry["targets"].split(",")])
+            qrcode = entry["qrcode"]
+            pickle_filename = entry["id"].replace(".pcd", ".p")
+            qrcode_path = os.path.join(base_path, "pcd", qrcode)
+            if os.path.exists(qrcode_path) == False:
+                os.mkdir(qrcode_path)
+            pickle_output_path = os.path.join(qrcode_path, pickle_filename)
+            pickle.dump((pointcloud, targets), open(pickle_output_path, "wb"))
+        bar.finish()
     
-    #entries = execute_command_filterjpgs()
-    #print("Found {} JPGs. Processing...".format(len(entries)))
+    # Process the filtered JPGs.
+    if preprocess_jpgs == True:
+        entries = execute_command_filterjpgs()["results"]
+        print("Found {} JPGs. Processing...".format(len(entries)))
+        bar = progressbar.ProgressBar(max_value=len(entries))
+        for index, entry in enumerate(entries):
+            bar.update(index)
+            path = entry["path"]
+            if os.path.exists(path) == False:
+                print("\n", "File {} does not exist!".format(path), "\n")
+                continue
+            image = cv2.imread(path)
+            targets = np.array([float(value) for value in entry["targets"].split(",")])
+            qrcode = entry["qrcode"]
+            pickle_filename = entry["id"].replace(".jpg", ".p")
+            qrcode_path = os.path.join(base_path, "jpg", qrcode)
+            if os.path.exists(qrcode_path) == False:
+                os.mkdir(qrcode_path)
+            pickle_output_path = os.path.join(qrcode_path, pickle_filename)
+            pickle.dump((image, targets), open(pickle_output_path, "wb"))
+        bar.finish()
+    
         
 if __name__ == "__main__":
     main()

@@ -141,6 +141,7 @@ class TestPreprocessedDataGenerator(unittest.TestCase):
 
         dataset_parameters_rgbmaps = {}
         dataset_parameters_rgbmaps["input_type"] = "rgbmap"
+        dataset_parameters_rgbmaps["output_targets"] = ["weight"]
         dataset_parameters_rgbmaps["random_seed"] = 666
         dataset_parameters_rgbmaps["filter"] = "360"
         dataset_parameters_rgbmaps["sequence_length"] = 4
@@ -152,10 +153,11 @@ class TestPreprocessedDataGenerator(unittest.TestCase):
         data_generator.analyze_files()
 
         generator = data_generator.generate(size=10, verbose=False)
-        for _ in range(1111):
+        for _ in range(10):
             dataset = next(generator)
             assert dataset[0].shape == (10, 4, 64, 64, 3), str(dataset[0].shape)
             assert dataset[1].shape == (10, 1), str(dataset[1].shape)
+            print(dataset[1])
         
     @unittest.skip("demonstrating skipping")
     def test_sequence_rgb_map_stress(self):
