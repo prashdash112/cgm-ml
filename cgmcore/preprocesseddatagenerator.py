@@ -447,6 +447,7 @@ def generate_data(class_self, size, qrcodes_to_use, verbose, output_queue):
     else:
         return return_values
 
+
 def load_pointcloud_and_target(file, output_targets):
     (pointcloud, targets) = pickle.load(file)
     if output_targets == ["height"]:
