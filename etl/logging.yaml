@@ -21,6 +21,15 @@ handlers:
         backupCount: 20
         encoding: utf8
 
+    info_file_handler:
+        class: logging.handlers.RotatingFileHandler
+        level: DEBUG
+        formatter: simple
+        filename: debug.log
+        maxBytes: 500485760 # 500MB
+        backupCount: 20
+        encoding: utf8
+
     error_file_handler:
         class: logging.handlers.RotatingFileHandler
         level: ERROR
