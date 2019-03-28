@@ -13,6 +13,7 @@ def connect_to_default_database():
         sslmode=json_data["sslmode"]
     )
     connection.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
+    connection.autocommit = True
     return connection
     
     
@@ -26,6 +27,8 @@ def connect_to_main_database():
         port=json_data["port"],
         sslmode=json_data["sslmode"]
     )
+    connection.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
+    connection.autocommit = True
     return connection
     
     
