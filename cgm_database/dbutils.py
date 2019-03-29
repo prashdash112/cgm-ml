@@ -44,9 +44,14 @@ class DatabaseInterface:
         self.connection = connection
         self.cursor = connection.cursor()
         
-    def execute(self, script):
-        self.cursor.execute(script)
+    def execute(self, script, fetch_one=False, fetch_all=False):
+        result = self.cursor.execute(script)
         self.connection.commit()
+        if fetch_one == True:
+            result = self.cursor.fetchone()
+        elif fetch_all == True:
+            result = self.cursor.fetchall()
+        return result
         
     def execute_script_file(self, filename):
         self.cursor.execute(open(filename, "r").read())
@@ -67,15 +72,37 @@ class DatabaseInterface:
         return result[0]
     
 
-def create_insert_statement(keys, values):
-    sql_statement = "INSERT INTO {}".format("measurements") + " "
+def create_insert_statement(table, keys, values, convert_values_to_string=True, use_quotes_for_values=True):
+    if convert_values_to_string == True:
+        values = [str(value) for value in values]
+    if use_quotes_for_values == True:
+        values = ["'" + value + "'" for value in values]
+        
+    sql_statement = "INSERT INTO {}".format(table) + " "
     
     keys_string = "(" + ", ".join(keys) + ")"
     sql_statement += keys_string
-
+    
     values_string = "VALUES (" + ", ".join(values) + ")"
     sql_statement += "\n" + values_string
     
     sql_statement += ";" + "\n"
     
+    return sql_statement
+
+
+def create_select_statement(table, keys, values, convert_values_to_string=True, use_quotes_for_values=True):
+    if convert_values_to_string == True:
+        values = [str(value) for value in values]
+    if use_quotes_for_values == True:
+        values = ["'" + value + "'" for value in values]
+
+    sql_statement = "SELECT * FROM {}".format(table) + " WHERE "
+    like_statements = []
+    for key, value in zip(keys, values):
+        like_statement = str(key) + " LIKE " + str(value)
+        like_statements.append(like_statement)
+    sql_statement += " AND ".join(like_statements) 
+    
+    sql_statement += ";" + "\n"
     return sql_statement
