@@ -66,3 +66,16 @@ class DatabaseInterface:
         result = self.cursor.fetchone()
         return result[0]
     
+
+def create_insert_statement(keys, values):
+    sql_statement = "INSERT INTO {}".format("measurements") + " "
+    
+    keys_string = "(" + ", ".join(keys) + ")"
+    sql_statement += keys_string
+
+    values_string = "VALUES (" + ", ".join(values) + ")"
+    sql_statement += "\n" + values_string
+    
+    sql_statement += ";" + "\n"
+    
+    return sql_statement
