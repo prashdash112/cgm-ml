@@ -91,18 +91,21 @@ def create_insert_statement(table, keys, values, convert_values_to_string=True, 
     return sql_statement
 
 
-def create_select_statement(table, keys, values, convert_values_to_string=True, use_quotes_for_values=True):
+def create_select_statement(table, keys=[], values=[], convert_values_to_string=True, use_quotes_for_values=True):
     if convert_values_to_string == True:
         values = [str(value) for value in values]
     if use_quotes_for_values == True:
         values = ["'" + value + "'" for value in values]
 
-    sql_statement = "SELECT * FROM {}".format(table) + " WHERE "
-    like_statements = []
-    for key, value in zip(keys, values):
-        like_statement = str(key) + " LIKE " + str(value)
-        like_statements.append(like_statement)
-    sql_statement += " AND ".join(like_statements) 
+    sql_statement = "SELECT * FROM {}".format(table)
+    
+    if len(keys) != 0 and len(values) != 0:
+        sql_statement += " WHERE "
+        like_statements = []
+        for key, value in zip(keys, values):
+            like_statement = str(key) + " LIKE " + str(value)
+            like_statements.append(like_statement)
+        sql_statement += " AND ".join(like_statements) 
     
     sql_statement += ";" + "\n"
     return sql_statement
