@@ -31,14 +31,14 @@ CREATE TABLE IF NOT EXISTS image_data (
     id SERIAL PRIMARY KEY,
     path TEXT NOT NULL,
     qrcode TEXT NOT NULL,
-    targets TEXT NOT NULL,
     last_updated REAL NOT NULL,
     rejected_by_expert BOOLEAN NOT NULL,
     had_error BOOLEAN NOT NULL,
     error_message TEXT,
     width_px INTEGER NOT NULL,
     height_px INTEGER NOT NULL,
-    blur_variance REAL NOT NULL
+    blur_variance REAL NOT NULL,
+    measurement_id INTEGER REFERENCES measurements(id)
 );
 
 -- Creates a table for pointcloud data.
@@ -46,7 +46,6 @@ CREATE TABLE IF NOT EXISTS pointcloud_data (
     id SERIAL PRIMARY KEY,
     path TEXT NOT NULL,
     qrcode TEXT NOT NULL,
-    targets TEXT NOT NULL,
     last_updated REAL NOT NULL,
     rejected_by_expert BOOLEAN NOT NULL,
     had_error BOOLEAN NOT NULL,
@@ -55,5 +54,6 @@ CREATE TABLE IF NOT EXISTS pointcloud_data (
     confidence_min REAL NOT NULL,
     confidence_avg REAL NOT NULL,
     confidence_std REAL NOT NULL,
-    confidence_max REAL NOT NULL
+    confidence_max REAL NOT NULL,
+    measurement_id INTEGER REFERENCES measurements(id)
 );

@@ -22,7 +22,7 @@ IMAGES_TABLE = "image_data"
 POINTCLOUDS_TABLE = "pointcloud_data"
 
 commands = [
-    # TODO "init",
+    "init",
     "updatemeasurements", # Uploads the CSV to the database.
     "updatemedia", 
     # TODO "filterpcds", 
@@ -156,11 +156,11 @@ def execute_command_updatemeasurements():
     print("Number of rows before: {}".format(rows_number))
 
     # Drop table. # TODO consider update.
-    main_connector.clear_table(table)
+    #main_connector.clear_table(table)
 
     # Number of rows after.
-    rows_number = main_connector.get_number_of_rows(table)
-    print("Number of rows after clear: {}".format(rows_number))
+    #rows_number = main_connector.get_number_of_rows(table)
+    #print("Number of rows after clear: {}".format(rows_number))
 
     # Insert data in batches.
     batch_size = 1000
@@ -196,11 +196,11 @@ def execute_command_updatemedia(update_default_values=False):
     # TODO openpose
     # TODO ...
     table = IMAGES_TABLE
-    main_connector.clear_table(table) # TODO stop clearing table!
+    #main_connector.clear_table(table) # TODO stop clearing table!
     glob_search_path = os.path.join(args.path, media_subpath, "**/*.jpg")
     print("Searching at {}... This might take a while!".format(glob_search_path))
-    #jpg_paths = glob.glob(glob_search_path) # TODO make this work again!
-    jpg_paths = ["/whhdata/person/MH_WHH_0153/measurements/1537860868501/rgb/rgb_MH_WHH_0153_1537860868501_104_95405.92970875901.jpg"]
+    jpg_paths = glob.glob(glob_search_path) # TODO make this work again!
+    #jpg_paths = ["/whhdata/person/MH_WHH_0153/measurements/1537860868501/rgb/rgb_MH_WHH_0153_1537860868501_104_95405.92970875901.jpg"]
     print("Found {} JPGs.".format(len(jpg_paths)))
     insert_count = 0
     update_count = 0
@@ -216,8 +216,9 @@ def execute_command_updatemedia(update_default_values=False):
         if len(results) == 0:
             insert_data = { "path": id }
             insert_data.update(get_default_values(path, table))
-            insert_data.update(get_image_values(path))
-            sql_statement += dbutils.create_insert_statement(table, insert_data.keys(), insert_data.values())
+            # TODO make this work
+            #insert_data.update(get_image_values(path))
+            #sql_statement += dbutils.create_insert_statement(table, insert_data.keys(), insert_data.values())
             insert_count += 1
         elif len(results) != 0:
             # TODO make this work
@@ -238,7 +239,7 @@ def execute_command_updatemedia(update_default_values=False):
     
     # Process PCDs.
     table = POINTCLOUDS_TABLE
-    main_connector.clear_table(table) # TODO stop clearing table!
+    #main_connector.clear_table(table) # TODO stop clearing table!
     glob_search_path = os.path.join(args.path, media_subpath, "**/*.pcd")
     print("Searching at {}... This might take a while!".format(glob_search_path))
     pcd_paths = glob.glob(glob_search_path)
@@ -284,26 +285,35 @@ def get_default_values(path, table):
     assert path_split[1] == whhdata_path[1:]
     assert path_split[2] == media_subpath
     
-    print(path_split)
-    
+    # Get important values from path.
     qrcode = path_split[3]
-    #qrcode = "SAM-SNG-051"
+    timestamp = path_split[-1].split("_")[-3]
     
-    # TODO fix this! find fitting entry in database
-    
-    # TODO get
+    # Todo get id of measurement.
+    threshold = int(60 * 60 * 24 * 1000)
     sql_statement = dbutils.create_select_statement("measurements", ["qrcode"], [qrcode])
-    sql_statement = "SELECT height_cms, weight_cms, muac_cms, head_circumference_cms, oedema FROM measurements WHERE qrcode = '{}';".format(qrcode)
-    
-    
-    #sql_statement = dbutils.create_select_statement("measurements")
+    sql_statement = ""
+    sql_statement += "SELECT id, timestamp"
+    sql_statement += " FROM measurements WHERE"
+    sql_statement += " qrcode = '{}'".format(qrcode)
+    sql_statement += " AND type = 'manual'"
+    #sql_statement += " AND ABS(timestamp - {}) < {}".format(timestamp, threshold)
+    sql_statement += ";"
     print(sql_statement)
     results = main_connector.execute(sql_statement, fetch_all=True)
     print(results)
     
+    if len(results) == 0:
+        print("No measurement_id found for {}".format(path))
+        return {} # TODO make this none
+    else:
+        measurement_id = results[0][0]
+        print(timestamp, results[0][1], abs(int(timestamp) - int(results[0][1])))
+        #print("Found measurement_id {} for {}".format(measurement_id, path))
+        #exit(0)
+        return {} # TODO fix this
+    
     assert False, "make proper link to measurements table"
-
-
     
     #target_file_path = os.path.join(*path.split("/")[:-2], "target.txt")
     last_updated, last_updated_readable = get_last_updated()
@@ -311,7 +321,6 @@ def get_default_values(path, table):
     #targets = target_file.read().replace("\n", "")
     #target_file.close()
     
-    targets = "IMPLEMENT!"
     
     values = {}
     values["path"] = path
@@ -319,6 +328,7 @@ def get_default_values(path, table):
     values["targets"] = targets
     values["last_updated"] = last_updated
     values["rejected_by_expert"] = False
+    values["measurement_id"] = measurement_id
     
     print(values)
     assert False
