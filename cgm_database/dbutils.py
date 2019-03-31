@@ -71,6 +71,15 @@ class DatabaseInterface:
         result = self.cursor.fetchone()
         return result[0]
     
+    def get_columns(self, table):
+        sql_statement = ""
+        sql_statement += "SELECT column_name, data_type, character_maximum_length FROM INFORMATION_SCHEMA.COLUMNS" 
+        sql_statement += " WHERE table_name = '{}';".format(table)
+        self.cursor.execute(sql_statement)
+        results = self.cursor.fetchall()
+        columns = [result[0] for result in results]
+        return columns
+    
 
 def create_insert_statement(table, keys, values, convert_values_to_string=True, use_quotes_for_values=True):
     if convert_values_to_string == True:
@@ -88,6 +97,20 @@ def create_insert_statement(table, keys, values, convert_values_to_string=True, 
     
     sql_statement += ";" + "\n"
     
+    return sql_statement
+
+
+def create_update_statement(table, keys, values, id_value, convert_values_to_string=True, use_quotes_for_values=True):
+    if convert_values_to_string == True:
+        values = [str(value) for value in values]
+    if use_quotes_for_values == True:
+        values = ["'" + value + "'" for value in values]
+        
+    sql_statement = "UPDATE {}".format(table) + " SET"
+    sql_statement += ", ".join([" {} = {}".format(key, value) for key, value in zip(keys, values) if key != id_value])
+    sql_statement += " WHERE id = {}".format(id_value)
+    sql_statement += ";" + "\n"
+
     return sql_statement
 
 

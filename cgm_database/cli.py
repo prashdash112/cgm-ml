@@ -129,9 +129,10 @@ def execute_command_updatemeasurements():
     # Where to get the data.
     glob_search_path = os.path.join(args.path, "*.csv")
     csv_paths = sorted(glob.glob(glob_search_path))
-    csv_path = csv_paths[0]
-    print("Using {}".format(csv_paths))
-   
+    csv_paths.sort(key=os.path.getmtime)
+    csv_path = csv_paths[-1]
+    print("Using {}".format(csv_path))
+
     # Load the data-frame.
     df = pd.read_csv(csv_path)
     
@@ -196,88 +197,67 @@ def execute_command_updatemedia(update_default_values=False):
     # TODO openpose
     # TODO ...
     table = IMAGES_TABLE
-    #main_connector.clear_table(table) # TODO stop clearing table!
     glob_search_path = os.path.join(args.path, media_subpath, "**/*.jpg")
     print("Searching at {}... This might take a while!".format(glob_search_path))
     jpg_paths = glob.glob(glob_search_path) # TODO make this work again!
     #jpg_paths = ["/whhdata/person/MH_WHH_0153/measurements/1537860868501/rgb/rgb_MH_WHH_0153_1537860868501_104_95405.92970875901.jpg"]
     print("Found {} JPGs.".format(len(jpg_paths)))
-    insert_count = 0
-    update_count = 0
-    bar = progressbar.ProgressBar(max_value=len(jpg_paths))
-    sql_statement = ""
-    batch_size = 1000
-    last_index = len(jpg_paths) - 1
-    for index, path in enumerate(jpg_paths):
-        bar.update(index)
-        id = os.path.basename(path)
-        sql_statement = dbutils.create_select_statement(table, ["path"], ["somepath"])
-        results = main_connector.execute(sql_statement, fetch_all=True)
-        if len(results) == 0:
-            insert_data = { "path": id }
-            insert_data.update(get_default_values(path, table))
-            # TODO make this work
-            #insert_data.update(get_image_values(path))
-            #sql_statement += dbutils.create_insert_statement(table, insert_data.keys(), insert_data.values())
-            insert_count += 1
-        elif len(results) != 0:
-            # TODO make this work
-            values = result
-            values.update(get_default_values(path))
-            db_connector.insert(into_table="jpg_table", id=id, values=values)
-            update_count += 1
-        if index != 0 and ((index % batch_size) == 0 or index == last_index):
-            print(sql_statement)
-            result = main_connector.execute(sql_statement)
-            print(results)
-            sql_statement = ""
-    bar.finish()
-    print("Inserted {} new entries.".format(insert_count))
-    print("Updated {} entries.".format(update_count))
+    update_media_table(jpg_paths, IMAGES_TABLE, get_image_values)
     
-    assert False, "Implement!"
     
     # Process PCDs.
     table = POINTCLOUDS_TABLE
-    #main_connector.clear_table(table) # TODO stop clearing table!
     glob_search_path = os.path.join(args.path, media_subpath, "**/*.pcd")
     print("Searching at {}... This might take a while!".format(glob_search_path))
     pcd_paths = glob.glob(glob_search_path)
+    #pcd_paths = ["/whhdata/person/MH_WHH_0030/measurements/1536913928288/pc/pc_MH_WHH_0030_1536913928288_104_000.pcd"]
     print("Found {} PCDs.".format(len(pcd_paths)))
+    update_media_table(pcd_paths, POINTCLOUDS_TABLE, get_pointcloud_values)
+
+    
+def update_media_table(file_paths, table, get_values):
     insert_count = 0
-    update_count = 0
-    bar = progressbar.ProgressBar(max_value=len(pcd_paths))
+    no_measurements_count = 0
+    skip_count = 0
+    bar = progressbar.ProgressBar(max_value=len(file_paths))
     sql_statement = ""
     batch_size = 1000
-    last_index = len(pcd_paths) - 1
-    for index, path in enumerate(pcd_paths):
+    last_index = len(file_paths) - 1
+    for index, file_path in enumerate(file_paths):
         bar.update(index)
-        id = os.path.basename(path)
-        result = db_connector.select(from_table="pcd_table", where_id=id)
-        if result == None:
-            values = { "id": id }
-            insert_data.update(get_default_values(path, table))
-            insert_data.update(get_pointcloud_values(path))
-            sql_statement += dbutils.create_insert_statement(table, insert_data.keys(), insert_data.values())
-            insert_count += 1
-        elif update_default_values == True:
-            values = result
-            values.update(get_default_values(path))
-            db_connector.insert(into_table="pcd_table", id=id, values=values)
-            update_count += 1
-        if index != 0 and ((index % batch_size) == 0 or index == last_index):
-            print(sql_statement)
+        
+        # Check if there is already an entry.
+        path = os.path.basename(file_path)
+        sql_statement = dbutils.create_select_statement(table, ["path"], [file_path])
+        results = main_connector.execute(sql_statement, fetch_all=True)
+  
+        # No results found. Insert.
+        if len(results) == 0:
+            insert_data = { "path": path }
+            default_values = get_default_values(file_path, table)
+            if default_values != None:
+                insert_data.update(default_values)
+                insert_data.update(get_values(file_path))
+                sql_statement += dbutils.create_insert_statement(table, insert_data.keys(), insert_data.values())
+                insert_count += 1
+            else:
+                no_measurements_count += 1
+        
+        # Found a result. Update.
+        elif len(results) != 0:
+            skip_count += 1
+        
+        # Update database.
+        if index != 0 and ((index % batch_size) == 0) or index == last_index:
             result = main_connector.execute(sql_statement)
-            print(results)
             sql_statement = ""
+   
     bar.finish()
     print("Inserted {} new entries.".format(insert_count))
-    print("Updated {} entries.".format(update_count))
-   
-    db_connector.synchronize()
-    print("Done.")
-
-
+    print("No measurements for {} entries.".format(no_measurements_count))
+    print("Skipped {} entries.".format(skip_count))
+    
+    
 def get_default_values(path, table):
     
     # Split and check the path.
@@ -289,50 +269,36 @@ def get_default_values(path, table):
     qrcode = path_split[3]
     timestamp = path_split[-1].split("_")[-3]
     
-    # Todo get id of measurement.
+    # Get id of measurement.
     threshold = int(60 * 60 * 24 * 1000)
     sql_statement = dbutils.create_select_statement("measurements", ["qrcode"], [qrcode])
     sql_statement = ""
-    sql_statement += "SELECT id, timestamp"
+    sql_statement += "SELECT id"
     sql_statement += " FROM measurements WHERE"
     sql_statement += " qrcode = '{}'".format(qrcode)
     sql_statement += " AND type = 'manual'"
-    #sql_statement += " AND ABS(timestamp - {}) < {}".format(timestamp, threshold)
+    sql_statement += " AND ABS(timestamp - {}) < {}".format(timestamp, threshold)
     sql_statement += ";"
-    print(sql_statement)
     results = main_connector.execute(sql_statement, fetch_all=True)
-    print(results)
     
+    # Measurement id not found. Return empty dictionary.
     if len(results) == 0:
         print("No measurement_id found for {}".format(path))
-        return {} # TODO make this none
-    else:
-        measurement_id = results[0][0]
-        print(timestamp, results[0][1], abs(int(timestamp) - int(results[0][1])))
-        #print("Found measurement_id {} for {}".format(measurement_id, path))
-        #exit(0)
-        return {} # TODO fix this
+        return None
+
+    # Found a measurement id.
+    measurement_id = results[0][0]
     
-    assert False, "make proper link to measurements table"
-    
-    #target_file_path = os.path.join(*path.split("/")[:-2], "target.txt")
-    last_updated, last_updated_readable = get_last_updated()
-    #target_file = open(target_file_path, "r")
-    #targets = target_file.read().replace("\n", "")
-    #target_file.close()
-    
-    
+    # Getting timestamp.
+    last_updated, _ = get_last_updated()
+
+    # Done.
     values = {}
     values["path"] = path
     values["qrcode"] = qrcode
-    values["targets"] = targets
     values["last_updated"] = last_updated
     values["rejected_by_expert"] = False
     values["measurement_id"] = measurement_id
-    
-    print(values)
-    assert False
-    
     return values
     
     
