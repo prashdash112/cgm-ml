@@ -143,7 +143,7 @@ def execute_command_updatemeasurements():
     columns_mapping["personId"] = "person_id"
     columns_mapping["age"] = "age_days"
     columns_mapping["height"] = "height_cms"
-    columns_mapping["weight"] = "weight_cms"
+    columns_mapping["weight"] = "weight_kgs"
     columns_mapping["muac"] = "muac_cms"
     columns_mapping["headCircumference"] = "head_circumference_cms"
     columns_mapping["deletedBy"] = "deleted_by"

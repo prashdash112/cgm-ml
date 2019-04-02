@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS measurements (
     type TEXT NOT NULL,
     age_days INTEGER NOT NULL,
     height_cms REAL NOT NULL,
-    weight_cms REAL NOT NULL,
+    weight_kgs REAL NOT NULL,
     muac_cms REAL NOT NULL,
     head_circumference_cms REAL NOT NULL,
     oedema BOOLEAN NOT NULL,
