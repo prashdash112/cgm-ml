@@ -25,6 +25,7 @@ commands = [
     "init",
     "updatemeasurements", # Uploads the CSV to the database.
     "updatemedia", 
+    "statistics"
     # TODO "filterpcds", 
     # TODO "filterjpgs", 
     # TODO "sortpcds",
@@ -87,6 +88,8 @@ def execute_command():
         result = execute_command_updatemeasurements()
     elif first_command == "updatemedia":
         result = execute_command_updatemedia()
+    elif first_command == "statistics":
+        result = execute_command_statistics()
     #elif first_command == "filterpcds":
     #    result = execute_command_filterpcds()
     #elif first_command == "filterjpgs":
@@ -377,6 +380,18 @@ def get_blur_variance(image):
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     return cv2.Laplacian(image, cv2.CV_64F).var()
  
+ 
+def execute_command_statistics():
+    result_string = ""
+    
+    tables = ["measurements", "image_data", "pointcloud_data"]
+    for table in tables:
+        sql_statement = "SELECT COUNT(*) FROM {};".format(table)
+        result = main_connector.execute(sql_statement, fetch_one=True)
+        result_string += "Table {} has {} entries.\n".format(table, result[0])
+    
+    return result_string
+    
     
 def execute_command_filterpcds(
     number_of_points_threshold=10000, 
