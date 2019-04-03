@@ -196,27 +196,30 @@ def execute_command_updatemeasurements():
 def execute_command_updatemedia(update_default_values=False):
     print("Updating media...")
     
+    update_jpgs = True
+    update_pcds = True
+    
     # Process JPGs.
-    # TODO openpose
-    # TODO ...
-    table = IMAGES_TABLE
-    glob_search_path = os.path.join(args.path, media_subpath, "**/*.jpg")
-    print("Searching at {}... This might take a while!".format(glob_search_path))
-    jpg_paths = glob.glob(glob_search_path) # TODO make this work again!
-    #jpg_paths = ["/whhdata/person/MH_WHH_0153/measurements/1537860868501/rgb/rgb_MH_WHH_0153_1537860868501_104_95405.92970875901.jpg"]
-    #jpg_paths = jpg_paths * 10000
-    #print(len(jpg_paths))
-    print("Found {} JPGs.".format(len(jpg_paths)))
-    update_media_table(jpg_paths, IMAGES_TABLE, get_image_values)
+    if update_jpgs == True:
+        # TODO openpose
+        # TODO ...
+        table = IMAGES_TABLE
+        glob_search_path = os.path.join(args.path, media_subpath, "**/*.jpg")
+        print("Searching at {}... This might take a while!".format(glob_search_path))
+        jpg_paths = glob.glob(glob_search_path) # TODO make this work again!
+        #jpg_paths = ["/whhdata/person/MH_WHH_0153/measurements/1537860868501/rgb/rgb_MH_WHH_0153_1537860868501_104_95405.92970875901.jpg"]
+        print("Found {} JPGs.".format(len(jpg_paths)))
+        update_media_table(jpg_paths, IMAGES_TABLE, get_image_values)
     
     # Process PCDs.
-    table = POINTCLOUDS_TABLE
-    glob_search_path = os.path.join(args.path, media_subpath, "**/*.pcd")
-    print("Searching at {}... This might take a while!".format(glob_search_path))
-    pcd_paths = glob.glob(glob_search_path)
-    #pcd_paths = ["/whhdata/person/MH_WHH_0030/measurements/1536913928288/pc/pc_MH_WHH_0030_1536913928288_104_000.pcd"]
-    print("Found {} PCDs.".format(len(pcd_paths)))
-    update_media_table(pcd_paths, POINTCLOUDS_TABLE, get_pointcloud_values)
+    if update_pcds == True:
+        table = POINTCLOUDS_TABLE
+        glob_search_path = os.path.join(args.path, media_subpath, "**/*.pcd")
+        print("Searching at {}... This might take a while!".format(glob_search_path))
+        pcd_paths = glob.glob(glob_search_path)
+        #pcd_paths = ["/whhdata/person/MH_WHH_0030/measurements/1536913928288/pc/pc_MH_WHH_0030_1536913928288_104_000.pcd"]
+        print("Found {} PCDs.".format(len(pcd_paths)))
+        update_media_table(pcd_paths, POINTCLOUDS_TABLE, get_pointcloud_values)
 
     
 def update_media_table(file_paths, table, get_values):
@@ -254,6 +257,9 @@ def update_media_table(file_paths, table, get_values):
         # Update database.
         if index != 0 and ((index % batch_size) == 0) or index == last_index:
             if sql_statement != "":
+                #print("")
+                #print(sql_statement)
+                #print("")
                 result = main_connector.execute(sql_statement)
                 sql_statement = ""
    
@@ -314,7 +320,7 @@ def get_last_updated():
     
     
 def get_pointcloud_values(path):
-    number_of_points = 0.0
+    number_of_points = 0
     confidence_min = 0.0
     confidence_avg = 0.0
     confidence_std = 0.0
