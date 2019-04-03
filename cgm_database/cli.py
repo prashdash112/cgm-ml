@@ -204,9 +204,10 @@ def execute_command_updatemedia(update_default_values=False):
     print("Searching at {}... This might take a while!".format(glob_search_path))
     jpg_paths = glob.glob(glob_search_path) # TODO make this work again!
     #jpg_paths = ["/whhdata/person/MH_WHH_0153/measurements/1537860868501/rgb/rgb_MH_WHH_0153_1537860868501_104_95405.92970875901.jpg"]
+    #jpg_paths = jpg_paths * 10000
+    #print(len(jpg_paths))
     print("Found {} JPGs.".format(len(jpg_paths)))
     update_media_table(jpg_paths, IMAGES_TABLE, get_image_values)
-    
     
     # Process PCDs.
     table = POINTCLOUDS_TABLE
@@ -231,8 +232,8 @@ def update_media_table(file_paths, table, get_values):
         
         # Check if there is already an entry.
         path = os.path.basename(file_path)
-        sql_statement = dbutils.create_select_statement(table, ["path"], [file_path])
-        results = main_connector.execute(sql_statement, fetch_all=True)
+        sql_statement_select = dbutils.create_select_statement(table, ["path"], [file_path])
+        results = main_connector.execute(sql_statement_select, fetch_all=True)
   
         # No results found. Insert.
         if len(results) == 0:
@@ -252,8 +253,9 @@ def update_media_table(file_paths, table, get_values):
         
         # Update database.
         if index != 0 and ((index % batch_size) == 0) or index == last_index:
-            result = main_connector.execute(sql_statement)
-            sql_statement = ""
+            if sql_statement != "":
+                result = main_connector.execute(sql_statement)
+                sql_statement = ""
    
     bar.finish()
     print("Inserted {} new entries.".format(insert_count))

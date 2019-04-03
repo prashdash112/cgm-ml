@@ -126,7 +126,7 @@ def create_select_statement(table, keys=[], values=[], convert_values_to_string=
         sql_statement += " WHERE "
         like_statements = []
         for key, value in zip(keys, values):
-            like_statement = str(key) + " LIKE " + str(value)
+            like_statement = str(key) + "=" + str(value)
             like_statements.append(like_statement)
         sql_statement += " AND ".join(like_statements) 
     
