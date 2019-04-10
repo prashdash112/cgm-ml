@@ -413,6 +413,7 @@ def execute_command_filterpcds(
     
     sql_statement = ""
     sql_statement += "SELECT * FROM {}".format(POINTCLOUDS_TABLE)
+    sql_statement += " INNER JOIN measurements ON {}.measurement_id=measurements.id".format(POINTCLOUDS_TABLE)
     sql_statement += " WHERE number_of_points > {}".format(number_of_points_threshold) 
     sql_statement += " AND confidence_avg > {}".format(confidence_avg_threshold)
     if remove_errors == True:
@@ -425,9 +426,12 @@ def execute_command_filterpcds(
             sql_statement += " ASC" 
         else:
             sql_statement += " DESC"
-
+    sql_statement += " AND measurements.type=\'manual\'"
+    
     results = main_connector.execute(sql_statement, fetch_all=True)
-    columns = main_connector.get_columns(POINTCLOUDS_TABLE)
+    columns = []
+    columns.extend(main_connector.get_columns(POINTCLOUDS_TABLE))
+    columns.extend(main_connector.get_columns(MEASUREMENTS_TABLE))
     results = [dict(list(zip(columns, result))) for result in results]
     return { "results" : results }
 
@@ -443,6 +447,7 @@ def execute_command_filterjpgs(
     
     sql_statement = ""
     sql_statement += "SELECT * FROM {}".format(IMAGES_TABLE)
+    sql_statement += " INNER JOIN measurements ON {}.measurement_id=measurements.id".format(IMAGES_TABLE)
     sql_statement += " WHERE blur_variance > {}".format(blur_variance_threshold) 
     if remove_errors == True:
         sql_statement += " AND had_error = false" 
@@ -456,7 +461,9 @@ def execute_command_filterjpgs(
             sql_statement += " DESC"
 
     results = main_connector.execute(sql_statement, fetch_all=True)
-    columns = main_connector.get_columns(IMAGES_TABLE)
+    columns = []
+    columns.extend(main_connector.get_columns(IMAGES_TABLE))
+    columns.extend(main_connector.get_columns(MEASUREMENTS_TABLE))
     results = [dict(list(zip(columns, result))) for result in results]
     return { "results" : results }
     
