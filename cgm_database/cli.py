@@ -415,6 +415,7 @@ def execute_command_filterpcds(
     sql_statement += "SELECT * FROM {}".format(POINTCLOUDS_TABLE)
     sql_statement += " INNER JOIN measurements ON {}.measurement_id=measurements.id".format(POINTCLOUDS_TABLE)
     sql_statement += " WHERE number_of_points > {}".format(number_of_points_threshold) 
+    sql_statement += " AND measurements.type=\'manual\'"
     sql_statement += " AND confidence_avg > {}".format(confidence_avg_threshold)
     if remove_errors == True:
         sql_statement += " AND had_error = false" 
@@ -426,7 +427,6 @@ def execute_command_filterpcds(
             sql_statement += " ASC" 
         else:
             sql_statement += " DESC"
-    sql_statement += " AND measurements.type=\'manual\'"
     
     results = main_connector.execute(sql_statement, fetch_all=True)
     columns = []
@@ -449,6 +449,7 @@ def execute_command_filterjpgs(
     sql_statement += "SELECT * FROM {}".format(IMAGES_TABLE)
     sql_statement += " INNER JOIN measurements ON {}.measurement_id=measurements.id".format(IMAGES_TABLE)
     sql_statement += " WHERE blur_variance > {}".format(blur_variance_threshold) 
+    sql_statement += " AND measurements.type=\'manual\'"
     if remove_errors == True:
         sql_statement += " AND had_error = false" 
     if remove_rejects == True:
