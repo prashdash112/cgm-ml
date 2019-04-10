@@ -25,9 +25,9 @@ commands = [
     "init",
     "updatemeasurements", # Uploads the CSV to the database.
     "updatemedia", 
-    "statistics"
-    # TODO "filterpcds", 
-    # TODO "filterjpgs", 
+    "statistics",
+    "filterpcds", 
+    "filterjpgs", 
     # TODO "sortpcds",
     # TODO "sortjpgs",
     # TODO "rejectqrcode",
@@ -90,10 +90,10 @@ def execute_command():
         result = execute_command_updatemedia()
     elif first_command == "statistics":
         result = execute_command_statistics()
-    #elif first_command == "filterpcds":
-    #    result = execute_command_filterpcds()
-    #elif first_command == "filterjpgs":
-    #    result = execute_command_filterjpgs()
+    elif first_command == "filterpcds":
+        result = execute_command_filterpcds()
+    elif first_command == "filterjpgs":
+        result = execute_command_filterjpgs()
     #elif first_command == "sortpcds":
     #    result = execute_command_sortpcds(sort_key="number_of_points", reverse=True)
     #elif first_command == "sortjpgs":
@@ -411,29 +411,25 @@ def execute_command_filterpcds(
     
     print("Filtering DB...")
     
-    entries = db_connector.select_all(from_table="pcd_table")
-    result_entries = []
-    for values in entries:
-        
-        # Remove everything that does not have enough points.
-        if int(values["number_of_points"]) < number_of_points_threshold:
-            continue
-        # Remove everything that does not have a high enough average confidence.
-        if float(values["confidence_avg"]) < confidence_avg_threshold:
-            continue
-        # Remove everything that has an error.
-        if remove_errors == True and bool(values["error"]) == True:
-            continue
-        # Remove everything that has been rejected by an expert.
-        if remove_rejects == True and bool(values["rejected_by_expert"]) == True:
-            continue
-        result_entries.append(values)
-        
+    sql_statement = ""
+    sql_statement += "SELECT * FROM {}".format(POINTCLOUDS_TABLE)
+    sql_statement += " WHERE number_of_points > {}".format(number_of_points_threshold) 
+    sql_statement += " AND confidence_avg > {}".format(confidence_avg_threshold)
+    if remove_errors == True:
+        sql_statement += " AND had_error = false" 
+    if remove_rejects == True:
+        sql_statement += " AND rejected_by_expert = false" 
     if sort_key != None:
-        print("Sorting", sort_key, sort_reverse)
-        result_entries = list(sorted(result_entries, key=lambda x: float(x[sort_key]), reverse=sort_reverse))   
-    
-    return { "results" : result_entries }
+        sql_statement += " ORDER BY {}".format(sort_key) 
+        if sort_reverse == False:
+            sql_statement += " ASC" 
+        else:
+            sql_statement += " DESC"
+
+    results = main_connector.execute(sql_statement, fetch_all=True)
+    columns = main_connector.get_columns(POINTCLOUDS_TABLE)
+    results = [dict(list(zip(columns, result))) for result in results]
+    return { "results" : results }
 
         
 def execute_command_filterjpgs(
@@ -445,27 +441,25 @@ def execute_command_filterjpgs(
     
     print("Filtering DB...")
     
-    entries = db_connector.select_all(from_table="jpg_table")
-    result_entries = []
-    for values in entries:
-        
-        # Remove that is too blurry.
-        if int(values["blur_variance"]) < blur_variance_threshold:
-            continue
-        # Remove everything that has an error.
-        if remove_errors == True and bool(values["error"]) == True:
-            continue
-        # Remove everything that has been rejected by an expert.
-        if remove_rejects == True and bool(values["rejected_by_expert"]) == True:
-            continue
-        result_entries.append(values)
-        
+    sql_statement = ""
+    sql_statement += "SELECT * FROM {}".format(IMAGES_TABLE)
+    sql_statement += " WHERE blur_variance > {}".format(blur_variance_threshold) 
+    if remove_errors == True:
+        sql_statement += " AND had_error = false" 
+    if remove_rejects == True:
+        sql_statement += " AND rejected_by_expert = false" 
     if sort_key != None:
-        print("Sorting", sort_key, sort_reverse)
-        result_entries = list(sorted(result_entries, key=lambda x: float(x[sort_key]), reverse=sort_reverse))   
+        sql_statement += " ORDER BY {}".format(sort_key) 
+        if sort_reverse == False:
+            sql_statement += " ASC" 
+        else:
+            sql_statement += " DESC"
+
+    results = main_connector.execute(sql_statement, fetch_all=True)
+    columns = main_connector.get_columns(IMAGES_TABLE)
+    results = [dict(list(zip(columns, result))) for result in results]
+    return { "results" : results }
     
-    return { "results" : result_entries }
-        
         
 def execute_command_sortpcds(sort_key, sort_reverse):
     print("Sorting DB...")
