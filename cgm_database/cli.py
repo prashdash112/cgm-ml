@@ -556,7 +556,7 @@ def execute_command_listrejected():
     }
     
 
-def execute_command_preprocess(preprocess_pcds=True, preprocess_jpgs=False):
+def execute_command_preprocess(preprocess_pcds=False, preprocess_jpgs=True):
     print("Preprocessing data-set...")
     
     # Create the base-folder.
@@ -600,7 +600,7 @@ def execute_command_preprocess(preprocess_pcds=True, preprocess_jpgs=False):
                 print("\n", "File {} does not exist!".format(path), "\n")
                 continue
             image = cv2.imread(path)
-            targets = np.array([float(value) for value in entry["targets"].split(",")])
+            targets = np.array([entry["height_cms"], entry["weight_kgs"]])
             qrcode = entry["qrcode"]
             pickle_filename = os.path.basename(entry["path"]).replace(".jpg", ".p")
             qrcode_path = os.path.join(base_path, "jpg", qrcode)
