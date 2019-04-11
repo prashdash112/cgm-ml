@@ -20,7 +20,7 @@ import pickle
 import dbutils
 import pandas as pd
 
-
+# Database constants.
 MEASUREMENTS_TABLE = "measurements"
 IMAGES_TABLE = "image_data"
 POINTCLOUDS_TABLE = "pointcloud_data"
@@ -37,13 +37,14 @@ commands = [
     # TODO "rejectqrcode", # Currently not supported.
     # TODO "acceptqrcode", # Currently not supported.
     # TODO "listrejected", # Currently not supported.
-    # TODO "preprocess" # Currently not supported.
+    "preprocess" # Creates a preprocessed dataset for training.
 ]
 
 main_connector = dbutils.connect_to_main_database()
 
 whhdata_path = "/whhdata"
 media_subpath = "person"
+preprocessed_root_path = "/whhdata/preprocessed"
 
 def main():
     parse_args()
@@ -110,8 +111,8 @@ def execute_command():
     #    result = execute_command_acceptqrcode(args.command[1])
     #elif first_command == "listrejected":
     #    result = execute_command_listrejected()
-    #elif first_command == "preprocess":
-    #    result = execute_command_preprocess()
+    elif first_command == "preprocess":
+        result = execute_command_preprocess()
     else:
         raise Exception("Unexpected {}.".format(args.command))
         
@@ -197,11 +198,8 @@ def execute_command_updatemeasurements():
     print("Number of rows after: {}".format(rows_number))
  
 
-def execute_command_updatemedia(update_default_values=False):
+def execute_command_updatemedia(update_default_values=False, update_jpgs=True, update_pcds=True):
     print("Updating media...")
-    
-    update_jpgs = True
-    update_pcds = True
     
     # Process JPGs.
     if update_jpgs == True:
@@ -580,9 +578,9 @@ def execute_command_preprocess(preprocess_pcds=True, preprocess_jpgs=False):
                 print("\n", "File {} does not exist!".format(path), "\n")
                 continue
             pointcloud = utils.load_pcd_as_ndarray(path)
-            targets = np.array([float(value) for value in entry["targets"].split(",")])
+            targets = np.array([entry["height_cms"], entry["weight_kgs"]])
             qrcode = entry["qrcode"]
-            pickle_filename = entry["id"].replace(".pcd", ".p")
+            pickle_filename = os.path.basename(entry["path"]).replace(".pcd", ".p")
             qrcode_path = os.path.join(base_path, "pcd", qrcode)
             if os.path.exists(qrcode_path) == False:
                 os.mkdir(qrcode_path)
@@ -604,7 +602,7 @@ def execute_command_preprocess(preprocess_pcds=True, preprocess_jpgs=False):
             image = cv2.imread(path)
             targets = np.array([float(value) for value in entry["targets"].split(",")])
             qrcode = entry["qrcode"]
-            pickle_filename = entry["id"].replace(".jpg", ".p")
+            pickle_filename = os.path.basename(entry["path"]).replace(".jpg", ".p")
             qrcode_path = os.path.join(base_path, "jpg", qrcode)
             if os.path.exists(qrcode_path) == False:
                 os.mkdir(qrcode_path)
