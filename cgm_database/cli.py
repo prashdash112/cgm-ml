@@ -1,3 +1,7 @@
+"""
+This is the Command Line Interface (CLI) for CGM. It is supposed to be used during production. For example in a cronjob.
+"""
+
 import sys
 sys.path.insert(0, "..")
 import warnings
@@ -22,18 +26,18 @@ IMAGES_TABLE = "image_data"
 POINTCLOUDS_TABLE = "pointcloud_data"
 
 commands = [
-    "init",
-    "updatemeasurements", # Uploads the CSV to the database.
-    "updatemedia", 
-    "statistics",
-    "filterpcds", 
-    "filterjpgs", 
-    # TODO "sortpcds",
-    # TODO "sortjpgs",
-    # TODO "rejectqrcode",
-    # TODO "acceptqrcode",
-    # TODO "listrejected",
-    # TODO "preprocess"
+    "init", # Initializes the database.
+    "updatemeasurements", # Synchronizes the measurements table.
+    "updatemedia", # Synchronizes the PCD- and JPG-table.
+    "statistics", # Yields simple statistics for the tables.
+    "filterpcds", # Yields filtered PCDs.
+    "filterjpgs", # Yields filtered JPGs.
+    # TODO "sortpcds", # Currently not supported.
+    # TODO "sortjpgs", # Currently not supported.
+    # TODO "rejectqrcode", # Currently not supported.
+    # TODO "acceptqrcode", # Currently not supported.
+    # TODO "listrejected", # Currently not supported.
+    # TODO "preprocess" # Currently not supported.
 ]
 
 main_connector = dbutils.connect_to_main_database()
