@@ -20,6 +20,13 @@ import pickle
 import dbutils
 import pandas as pd
 
+
+from imutils.object_detection import non_max_suppression
+from imutils import paths
+import numpy as np
+import argparse
+import imutils
+
 # Database constants.
 MEASUREMENTS_TABLE = "measurements"
 IMAGES_TABLE = "image_data"
@@ -361,6 +368,7 @@ def get_image_values(path):
     width = 0.0
     height = 0.0
     blur_variance = 0.0
+    has_face = False
     error = False
     error_message = ""
     try:
@@ -368,6 +376,7 @@ def get_image_values(path):
         width = image.shape[0]
         height = image.shape[1]
         blur_variance = get_blur_variance(image)
+        has_face = get_face_found(image)
     except Exception as e:
         print("\n", path, e)
         error = True
@@ -381,6 +390,7 @@ def get_image_values(path):
     values["width_px"] = width
     values["height_px"] = height
     values["blur_variance"] = blur_variance
+    values["has_face"] = has_face
     values["had_error"] = error
     values["error_message"] = error_message
     return values
@@ -389,7 +399,27 @@ def get_image_values(path):
 def get_blur_variance(image):
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     return cv2.Laplacian(image, cv2.CV_64F).var()
- 
+
+
+def get_face_found(image):
+    image = imutils.rotate(image, -90)
+    image = imutils.resize(image, width=min(800, image.shape[1]))
+
+    (rows, cols) = image.shape[:2] 
+        
+    M = cv2.getRotationMatrix2D((cols / 2, rows / 2), -90, 1) 
+    image = cv2.warpAffine(image, M, (cols, rows)) 
+    
+    cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    haar_cascade_face = cv2.CascadeClassifier('haarcascade_frontalface_default.xml')
+    faces_rects = haar_cascade_face.detectMultiScale(image, scaleFactor = 1.2, minNeighbors = 5)
+    
+    print('Faces found: ', len(faces_rects))
+    
+    if(len(faces_rects)>0):
+        return True
+
+    return False
  
 def execute_command_statistics():
     result_string = ""
@@ -440,6 +470,7 @@ def execute_command_filterpcds(
         
 def execute_command_filterjpgs(
     blur_variance_threshold=100.0,
+    has_face=True,
     remove_errors=True, 
     remove_rejects=True, 
     sort_key=None, 
@@ -452,6 +483,8 @@ def execute_command_filterjpgs(
     sql_statement += " INNER JOIN measurements ON {}.measurement_id=measurements.id".format(IMAGES_TABLE)
     sql_statement += " WHERE blur_variance > {}".format(blur_variance_threshold) 
     sql_statement += " AND measurements.type=\'manual\'"
+    if has_face == True:
+        sql_statement += " AND has_face = true" 
     if remove_errors == True:
         sql_statement += " AND had_error = false" 
     if remove_rejects == True:
@@ -556,7 +589,7 @@ def execute_command_listrejected():
     }
     
 
-def execute_command_preprocess(preprocess_pcds=False, preprocess_jpgs=True):
+def execute_command_preprocess(preprocess_pcds=True, preprocess_jpgs=True):
     print("Preprocessing data-set...")
     
     # Create the base-folder.

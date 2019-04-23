@@ -38,6 +38,7 @@ CREATE TABLE IF NOT EXISTS image_data (
     width_px INTEGER NOT NULL,
     height_px INTEGER NOT NULL,
     blur_variance REAL NOT NULL,
+    has_face BOOLEAN NOT NULL,
     measurement_id INTEGER REFERENCES measurements(id)
 );
 
