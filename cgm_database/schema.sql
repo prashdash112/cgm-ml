@@ -56,5 +56,12 @@ CREATE TABLE IF NOT EXISTS pointcloud_data (
     confidence_avg REAL NOT NULL,
     confidence_std REAL NOT NULL,
     confidence_max REAL NOT NULL,
+    centroid_x REAL NOT NULL, 
+    centroid_y REAL NOT NULL, 
+    centroid_z REAL NOT NULL, 
+    stdev_x REAL NOT NULL,
+    stdev_y REAL NOT NULL,
+    stdev_z REAL NOT NULL,
+
     measurement_id INTEGER REFERENCES measurements(id)
 );

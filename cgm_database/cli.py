@@ -334,16 +334,34 @@ def get_pointcloud_values(path):
     confidence_avg = 0.0
     confidence_std = 0.0
     confidence_max = 0.0
+    centroid_x = 0.0
+    centroid_y = 0.0
+    centroid_z = 0.0
+    stdev_x = 0.0
+    stdev_y = 0.0
+    stdev_z = 0.0
     error = False
     error_message = ""
     
     try:
         pointcloud = utils.load_pcd_as_ndarray(path)
         number_of_points = len(pointcloud)
+        
         confidence_min = float(np.min(pointcloud[:,3]))
         confidence_avg = float(np.mean(pointcloud[:,3]))
         confidence_std = float(np.std(pointcloud[:,3]))
         confidence_max = float(np.max(pointcloud[:,3]))
+        
+        stdev = np.std(pointcloud, axis=0)
+        stdev_x = float(stdev[0])
+        stdev_y = float(stdev[1])
+        stdev_z = float(stdev[2])
+       
+        centroid = np.mean(pointcloud, axis=0) 
+        centroid_x = float(centroid[0])
+        centroid_y = float(centroid[1])
+        centroid_z = float(centroid[2])
+    
     except Exception as e:
         print("\n", path, e)
         error = True
@@ -359,6 +377,12 @@ def get_pointcloud_values(path):
     values["confidence_avg"] = confidence_avg
     values["confidence_std"] = confidence_std
     values["confidence_max"] = confidence_max
+    values["centroid_x"] = centroid_x
+    values["centroid_y"] = centroid_y
+    values["centroid_z"] = centroid_z
+    values["stdev_x"] = stdev_x
+    values["stdev_y"] = stdev_y
+    values["stdev_z"] = stdev_z
     values["had_error"] = error
     values["error_message"] = error_message
     return values
@@ -401,22 +425,18 @@ def get_blur_variance(image):
     return cv2.Laplacian(image, cv2.CV_64F).var()
 
 
-def get_face_found(image):
-    image = imutils.rotate(image, -90)
-    image = imutils.resize(image, width=min(800, image.shape[1]))
 
-    (rows, cols) = image.shape[:2] 
-        
-    M = cv2.getRotationMatrix2D((cols / 2, rows / 2), -90, 1) 
-    image = cv2.warpAffine(image, M, (cols, rows)) 
+sys.path.insert(0, '../cgmcore')
+import imageprocessing as ip
+
+
+def get_face_found(image):
     
-    cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-    haar_cascade_face = cv2.CascadeClassifier('haarcascade_frontalface_default.xml')
-    faces_rects = haar_cascade_face.detectMultiScale(image, scaleFactor = 1.2, minNeighbors = 5)
+    faces = ip.get_nr_of_faces(image)
+
+    print('Faces found: ', faces)
     
-    print('Faces found: ', len(faces_rects))
-    
-    if(len(faces_rects)>0):
+    if(faces>0):
         return True
 
     return False
