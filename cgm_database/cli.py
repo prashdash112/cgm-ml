@@ -198,7 +198,7 @@ def execute_command_updatemeasurements():
     print("Number of rows after: {}".format(rows_number))
  
 
-def execute_command_updatemedia(update_default_values=False, update_jpgs=True, update_pcds=True):
+def execute_command_updatemedia(update_default_values=True, update_jpgs=False, update_pcds=True):
     print("Updating media...")
     
     # Process JPGs.
@@ -254,6 +254,7 @@ def update_media_table(file_paths, table, get_values):
         
         # Found a result. Update.
         elif len(results) != 0:
+            # TODO check if measurement id is missing or not
             skip_count += 1
         
         # Update database.
@@ -282,6 +283,9 @@ def get_default_values(path, table):
     qrcode = path_split[3]
     timestamp = path_split[-1].split("_")[-3]
     
+    # Getting timestamp.
+    last_updated, _ = get_last_updated()
+
     # Get id of measurement.
     threshold = int(60 * 60 * 24 * 1000)
     sql_statement = dbutils.create_select_statement("measurements", ["qrcode"], [qrcode])
@@ -294,24 +298,21 @@ def get_default_values(path, table):
     sql_statement += ";"
     results = main_connector.execute(sql_statement, fetch_all=True)
     
-    # Measurement id not found. Return empty dictionary.
-    if len(results) == 0:
-        print("No measurement_id found for {}".format(path))
-        return None
-
-    # Found a measurement id.
-    measurement_id = results[0][0]
-    
-    # Getting timestamp.
-    last_updated, _ = get_last_updated()
-
-    # Done.
+    # Prepare values.
     values = {}
     values["path"] = path
     values["qrcode"] = qrcode
     values["last_updated"] = last_updated
     values["rejected_by_expert"] = False
-    values["measurement_id"] = measurement_id
+
+    # Measurement id not found.
+    if len(results) == 0:
+        print("No measurement_id found for {}".format(path))
+        
+    # Found a measurement id.
+    else:
+        values["measurement_id"] = results[0][0]
+    
     return values
     
     
@@ -352,6 +353,12 @@ def get_pointcloud_values(path):
     values["confidence_avg"] = confidence_avg
     values["confidence_std"] = confidence_std
     values["confidence_max"] = confidence_max
+    values["centroid_x"] = 0 # TODO fix
+    values["centroid_y"] = 0 # TODO fix
+    values["centroid_z"] = 0 # TODO fix
+    values["stdev_x"] = 0 # TODO fix
+    values["stdev_y"] = 0 # TODO fix
+    values["stdev_z"] = 0 # TODO fix
     values["had_error"] = error
     values["error_message"] = error_message
     return values
@@ -381,6 +388,7 @@ def get_image_values(path):
     values["width_px"] = width
     values["height_px"] = height
     values["blur_variance"] = blur_variance
+    values["has_face"] = False # TODO fix
     values["had_error"] = error
     values["error_message"] = error_message
     return values
@@ -394,11 +402,19 @@ def get_blur_variance(image):
 def execute_command_statistics():
     result_string = ""
     
+    # Getting table sizes.
     tables = ["measurements", "image_data", "pointcloud_data"]
     for table in tables:
         sql_statement = "SELECT COUNT(*) FROM {};".format(table)
-        result = main_connector.execute(sql_statement, fetch_one=True)
-        result_string += "Table {} has {} entries.\n".format(table, result[0])
+        result = main_connector.execute(sql_statement, fetch_one=True)[0]
+        result_string += "Table {} has {} entries.\n".format(table, result)
+    
+    # Find the number of rows that lack measurement-id.
+    tables = ["image_data", "pointcloud_data"]
+    for table in tables:
+        sql_statement = "SELECT COUNT(*) FROM {} WHERE measurement_id IS NULL;".format(table)
+        result = main_connector.execute(sql_statement, fetch_one=True)[0]
+        result_string += "Table {} has {} entries without measurement-id.\n".format(table, result)
     
     return result_string
     
