@@ -1,10 +1,14 @@
 '''
 This script trains on RGB-Maps.
 '''
+import sys
+sys.path.insert(0, "..")
+import warnings
+warnings.filterwarnings("ignore")
 from cgmcore import modelutils
 from cgmcore import utils
 import numpy as np
-from keras import models, layers, callbacks, optimizers
+from tensorflow.keras import callbacks, optimizers, models, layers
 import pprint
 import os
 from cgmcore.preprocesseddatagenerator import get_dataset_path, create_datagenerator_from_parameters
@@ -16,9 +20,9 @@ dataset_path = get_dataset_path()
 print("Using dataset path", dataset_path)
 
 # Hyperparameters.
-steps_per_epoch = 100
-validation_steps = 10
-epochs = 50
+steps_per_epoch = 1
+validation_steps = 1
+epochs = 2
 batch_size = 32
 random_seed = 667
 
@@ -73,17 +77,22 @@ training_details = {
     "epochs" : epochs,
     "batch_size" : batch_size,
     "random_seed" : random_seed,
+    "dataset_parameters" : dataset_parameters
 }
 
+# Date time string.
+datetime_string = utils.get_datetime_string()
+
 # Output path. Ensure its existence.
-output_path = "models"
+output_path = os.path.join("/whhdata/models", datetime_string)
 if os.path.exists(output_path) == False:
     os.makedirs(output_path)
 print("Using output path:", output_path)
 
 # Important things.
 pp = pprint.PrettyPrinter(indent=4)
-tensorboard_callback = callbacks.TensorBoard()
+log_dir = os.path.join("/whhdata/models", "logs", datetime_string)
+tensorboard_callback = callbacks.TensorBoard(log_dir=log_dir)
 histories = {}
     
 # Training network.
@@ -129,10 +138,11 @@ def train_rgbmaps():
         epochs=epochs,
         validation_data=generator_validate,
         validation_steps=validation_steps,
+        use_multiprocessing=True,
         callbacks=[tensorboard_callback]
         )
 
     histories["rgbnet"] = history
-    modelutils.save_model_and_history(output_path, model, history, training_details, "rgbnet")
+    modelutils.save_model_and_history(output_path, datetime_string, model, history, training_details, "rgbnet")
 
 train_rgbmaps()

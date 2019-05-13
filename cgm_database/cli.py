@@ -221,16 +221,15 @@ def execute_command_updatemedia(update_default_values=True, update_jpgs=False, u
         pcd_paths = glob.glob(glob_search_path)
         #pcd_paths = ["/whhdata/person/MH_WHH_0030/measurements/1536913928288/pc/pc_MH_WHH_0030_1536913928288_104_000.pcd"]
         print("Found {} PCDs.".format(len(pcd_paths)))
-        update_media_table(pcd_paths, POINTCLOUDS_TABLE, get_pointcloud_values)
+        update_media_table(pcd_paths, POINTCLOUDS_TABLE, get_pointcloud_values, batch_size=100)
 
     
-def update_media_table(file_paths, table, get_values):
+def update_media_table(file_paths, table, get_values, batch_size=1000):
     insert_count = 0
     no_measurements_count = 0
     skip_count = 0
     bar = progressbar.ProgressBar(max_value=len(file_paths))
     sql_statement = ""
-    batch_size = 1000
     last_index = len(file_paths) - 1
     for index, file_path in enumerate(file_paths):
         bar.update(index)
@@ -353,12 +352,12 @@ def get_pointcloud_values(path):
     values["confidence_avg"] = confidence_avg
     values["confidence_std"] = confidence_std
     values["confidence_max"] = confidence_max
-    values["centroid_x"] = 0 # TODO fix
-    values["centroid_y"] = 0 # TODO fix
-    values["centroid_z"] = 0 # TODO fix
-    values["stdev_x"] = 0 # TODO fix
-    values["stdev_y"] = 0 # TODO fix
-    values["stdev_z"] = 0 # TODO fix
+    #values["centroid_x"] = 0 # TODO fix
+    #values["centroid_y"] = 0 # TODO fix
+    #values["centroid_z"] = 0 # TODO fix
+    #values["stdev_x"] = 0 # TODO fix
+    #values["stdev_y"] = 0 # TODO fix
+    #values["stdev_z"] = 0 # TODO fix
     values["had_error"] = error
     values["error_message"] = error_message
     return values
@@ -421,7 +420,8 @@ def execute_command_statistics():
     
 def execute_command_filterpcds(
     number_of_points_threshold=10000, 
-    confidence_avg_threshold=0.75, 
+    confidence_avg_threshold=0.75,
+    remove_unreasonable=True,
     remove_errors=True, 
     remove_rejects=True, 
     sort_key=None, 
@@ -430,15 +430,37 @@ def execute_command_filterpcds(
     print("Filtering DB...")
     
     sql_statement = ""
+    # Get all pointclouds.
     sql_statement += "SELECT * FROM {}".format(POINTCLOUDS_TABLE)
+    
+    # Join them with measurements.
     sql_statement += " INNER JOIN measurements ON {}.measurement_id=measurements.id".format(POINTCLOUDS_TABLE)
+    
+    # Remove pointclouds that have to few points.
     sql_statement += " WHERE number_of_points > {}".format(number_of_points_threshold) 
+    
+    # Only take into account manual measurements.
     sql_statement += " AND measurements.type=\'manual\'"
+    
+    # Remove pointclouds that have a confidence that is too low.
     sql_statement += " AND confidence_avg > {}".format(confidence_avg_threshold)
+    
+    # Ignore measurements that are not plausible.
+    if remove_unreasonable == True:
+        sql_statement += " AND measurements.height_cms >= 60"
+        sql_statement += " AND measurements.height_cms <= 120"
+        sql_statement += " AND measurements.weight_kgs >= 2"
+        sql_statement += " AND measurements.weight_kgs <= 20"
+    
+    # Remove errors.
     if remove_errors == True:
         sql_statement += " AND had_error = false" 
+    
+    # Remove rejected samples.
     if remove_rejects == True:
         sql_statement += " AND rejected_by_expert = false" 
+    
+    # Do some sorting.
     if sort_key != None:
         sql_statement += " ORDER BY {}".format(sort_key) 
         if sort_reverse == False:
@@ -446,6 +468,7 @@ def execute_command_filterpcds(
         else:
             sql_statement += " DESC"
     
+    # Execute statement.
     results = main_connector.execute(sql_statement, fetch_all=True)
     columns = []
     columns.extend(main_connector.get_columns(POINTCLOUDS_TABLE))
@@ -572,7 +595,7 @@ def execute_command_listrejected():
     }
     
 
-def execute_command_preprocess(preprocess_pcds=False, preprocess_jpgs=True):
+def execute_command_preprocess(preprocess_pcds=True, preprocess_jpgs=False):
     print("Preprocessing data-set...")
     
     # Create the base-folder.
@@ -584,8 +607,32 @@ def execute_command_preprocess(preprocess_pcds=False, preprocess_jpgs=True):
     
     # Process the filtered PCDs.
     if preprocess_pcds == True:
-        entries = execute_command_filterpcds()["results"]
+        # Filter parameters.
+        number_of_points_threshold=10000
+        confidence_avg_threshold=0.75
+        remove_unreasonable=True
+        remove_errors=True
+        remove_rejects=True 
+        
+        # Save filter parameters.
+        filter_parameters_path = os.path.join(base_path, "filter_parameters.txt")
+        with open(filter_parameters_path, "w") as filter_parameters_file:
+            filter_parameters_file.write("number_of_points_threshold" + "," + str(number_of_points_threshold) + "\n")
+            filter_parameters_file.write("confidence_avg_threshold" + "," + str(confidence_avg_threshold) + "\n")
+            filter_parameters_file.write("remove_unreasonable" + "," + str(remove_unreasonable) + "\n")
+            filter_parameters_file.write("remove_errors" + "," + str(remove_errors) + "\n")
+            filter_parameters_file.write("remove_rejects" + "," + str(remove_rejects) + "\n")
+        
+        # Get filtered entries.
+        entries = execute_command_filterpcds(
+            number_of_points_threshold=number_of_points_threshold,
+            confidence_avg_threshold=confidence_avg_threshold,
+            remove_unreasonable=remove_unreasonable,
+            remove_errors=remove_errors,
+            remove_rejects=remove_rejects
+        )["results"]
         print("Found {} PCDs. Processing...".format(len(entries)))
+        
         bar = progressbar.ProgressBar(max_value=len(entries))
         for index, entry in enumerate(entries):
             bar.update(index)
