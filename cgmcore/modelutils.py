@@ -2,12 +2,11 @@
 Helper module for Neural Networks.
 """
 
-from keras import models, layers
-from keras import applications
-from keras import backend as K
+from tensorflow.keras import models, layers
+from tensorflow.keras import applications
+from tensorflow.keras import backend as K
 import numpy as np
 import tensorflow as tf
-from .utils import get_datetime_string
 import os
 import pickle
 
@@ -322,11 +321,9 @@ def create_vgg(input_shape, output_size):
 
 
 # Method for saving model and history.
-def save_model_and_history(output_path, model, history, training_details, name):
+def save_model_and_history(output_path, datetime_string, model, history, training_details, name):
 
     print("Saving model and history...")
-
-    datetime_string = get_datetime_string()
 
     # Try to save model. Could fail.
     try:
