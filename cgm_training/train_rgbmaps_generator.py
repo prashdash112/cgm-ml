@@ -20,8 +20,8 @@ dataset_path = get_dataset_path()
 print("Using dataset path", dataset_path)
 
 # Hyperparameters.
-steps_per_epoch = 1
-validation_steps = 1
+steps_per_epoch = 100
+validation_steps = 10
 epochs = 2
 batch_size = 32
 random_seed = 667
