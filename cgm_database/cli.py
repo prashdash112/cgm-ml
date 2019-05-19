@@ -19,6 +19,7 @@ import pprint
 import pickle
 import dbutils
 import pandas as pd
+import multiprocessing
 
 # Database constants.
 MEASUREMENTS_TABLE = "measurements"
@@ -588,7 +589,6 @@ def execute_command_acceptqrcode(qrcode):
  
 
 def execute_command_listrejected():
-    
     return {
         "rejected_pcds": db_connector.select_all(from_table="pcd_table", where=("rejected_by_expert", True)),
         "rejected_jpgs": db_connector.select_all(from_table="jpg_table", where=("rejected_by_expert", True))
@@ -633,13 +633,12 @@ def execute_command_preprocess(preprocess_pcds=True, preprocess_jpgs=False):
         )["results"]
         print("Found {} PCDs. Processing...".format(len(entries)))
         
-        bar = progressbar.ProgressBar(max_value=len(entries))
-        for index, entry in enumerate(entries):
-            bar.update(index)
+        # Method for processing a single entry.
+        def process_pcd_entry(entry):
             path = entry["path"]
             if os.path.exists(path) == False:
                 print("\n", "File {} does not exist!".format(path), "\n")
-                continue
+                return
             pointcloud = utils.load_pcd_as_ndarray(path)
             targets = np.array([entry["height_cms"], entry["weight_kgs"]])
             qrcode = entry["qrcode"]
@@ -649,19 +648,22 @@ def execute_command_preprocess(preprocess_pcds=True, preprocess_jpgs=False):
                 os.mkdir(qrcode_path)
             pickle_output_path = os.path.join(qrcode_path, pickle_filename)
             pickle.dump((pointcloud, targets), open(pickle_output_path, "wb"))
-        bar.finish()
+        
+        # Start multiprocessing.
+        multiprocess(entries, process_pcd_entry)
     
     # Process the filtered JPGs.
     if preprocess_jpgs == True:
         entries = execute_command_filterjpgs()["results"]
         print("Found {} JPGs. Processing...".format(len(entries)))
         bar = progressbar.ProgressBar(max_value=len(entries))
-        for index, entry in enumerate(entries):
-            bar.update(index)
+        
+        # Method for processing a single entry.
+        def process_jpg_entry(entry):
             path = entry["path"]
             if os.path.exists(path) == False:
                 print("\n", "File {} does not exist!".format(path), "\n")
-                continue
+                return
             image = cv2.imread(path)
             targets = np.array([entry["height_cms"], entry["weight_kgs"]])
             qrcode = entry["qrcode"]
@@ -671,8 +673,48 @@ def execute_command_preprocess(preprocess_pcds=True, preprocess_jpgs=False):
                 os.mkdir(qrcode_path)
             pickle_output_path = os.path.join(qrcode_path, pickle_filename)
             pickle.dump((image, targets), open(pickle_output_path, "wb"))
-        bar.finish()
+        
+        # Start multiprocessing.
+        multiprocess(entries, process_pcd_entry)
     
+    
+def multiprocess(entries, process_entry_method):
+    # Get number of workers.
+    number_of_workers = multiprocessing.cpu_count()
+    print("Using {} workers...".format(number_of_workers))
+
+    # Split into list.
+    entry_sublists = np.array_split(entries, number_of_workers)
+    assert len(entry_sublists) == number_of_workers
+    assert np.sum([len(entry_sublist) for entry_sublist in entry_sublists] ) == len(entries)
+
+    # Define an output queue
+    output = multiprocessing.Queue()
+
+    def multiprocess_target(entry_sublist):
+        bar = progressbar.ProgressBar(max_value=len(entry_sublist))
+        for entry_index, entry in enumerate(entry_sublist):
+            bar.update(entry_index)
+            process_entry_method(entry)
+        bar.finish()
+        output.put("Processed {}".format(len(entry_sublist)))
+
+    # Setup a list of processes that we want to run
+    processes = [multiprocessing.Process(target=multiprocess_target, args=(entry_sublist,)) for entry_sublist in entry_sublists]
+
+    # Run processes
+    for process in processes:
+        process.start()
+
+    # Exit the completed processes
+    for process in processes:
+        process.join()
+
+    # Get process results from the output queue
+    results = [output.get() for process in processes]
+
+    print(results)  
+      
         
 if __name__ == "__main__":
     main()
