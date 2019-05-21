@@ -328,6 +328,15 @@ def get_pointcloud_values(path):
     confidence_avg = 0.0
     confidence_std = 0.0
     confidence_max = 0.0
+    
+    centroid_x = 0.0
+    centroid_y = 0.0
+    centroid_z = 0.0
+    
+    stdev_x = 0.0
+    stdev_y = 0.0
+    stdev_z = 0.0
+    
     error = False
     error_message = ""
     
@@ -338,6 +347,15 @@ def get_pointcloud_values(path):
         confidence_avg = float(np.mean(pointcloud[:,3]))
         confidence_std = float(np.std(pointcloud[:,3]))
         confidence_max = float(np.max(pointcloud[:,3]))
+        
+        centroid_x = float(np.mean(pointcloud[:,0]))
+        centroid_y = float(np.mean(pointcloud[:,1]))
+        centroid_z = float(np.mean(pointcloud[:,2]))
+        
+        stdev_x = float(np.mean(pointcloud[:,0]))
+        stdev_y = float(np.mean(pointcloud[:,1]))
+        stdev_z = float(np.mean(pointcloud[:,2]))
+        
     except Exception as e:
         print("\n", path, e)
         error = True
@@ -353,12 +371,12 @@ def get_pointcloud_values(path):
     values["confidence_avg"] = confidence_avg
     values["confidence_std"] = confidence_std
     values["confidence_max"] = confidence_max
-    #values["centroid_x"] = 0 # TODO fix
-    #values["centroid_y"] = 0 # TODO fix
-    #values["centroid_z"] = 0 # TODO fix
-    #values["stdev_x"] = 0 # TODO fix
-    #values["stdev_y"] = 0 # TODO fix
-    #values["stdev_z"] = 0 # TODO fix
+    values["centroid_x"] = centroid_x
+    values["centroid_y"] = centroid_y
+    values["centroid_z"] = centroid_z
+    values["stdev_x"] = stdev_x
+    values["stdev_y"] = stdev_y
+    values["stdev_z"] = stdev_z
     values["had_error"] = error
     values["error_message"] = error_message
     return values
