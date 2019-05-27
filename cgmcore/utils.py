@@ -12,6 +12,7 @@ except Exception as e:
     print("WARNING! VTK not available. This might limit the functionality.") 
 from pyntcloud import PyntCloud
 import pickle
+import random
 
     
 def load_pcd_as_ndarray(pcd_path):
@@ -376,3 +377,20 @@ def find_all_history_paths(root_path):
     all_paths = glob.glob(os.path.join(root_path, "*.p"))
     history_paths = [path for path in all_paths if "history" in path]
     return history_paths
+
+
+def create_training_tasks(qrcodes, subset_sizes, random_seed=666):
+    """
+    Takes a bunch of qr-codes and creates subsets of given sizes.
+    """
+    random_seed = 666
+    randomizer = random.Random(random_seed)
+    qrcodes_tasks = []
+    for subset_size in subset_sizes:
+        randomizer.shuffle(qrcodes)
+        qrcodes_shuffle_subset = qrcodes[:int(len(qrcodes) * subset_size)]
+        split_index = int(0.8 * len(qrcodes_shuffle_subset))
+        qrcodes_train = sorted(qrcodes_shuffle_subset[:split_index])
+        qrcodes_validate = sorted(qrcodes_shuffle_subset[split_index:])
+        qrcodes_tasks.append((qrcodes_train, qrcodes_validate))
+    return qrcodes_tasks
