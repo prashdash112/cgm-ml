@@ -22,10 +22,10 @@ dataset_path = get_dataset_path()
 print("Using dataset path", dataset_path)
 
 # Hyperparameters.
-steps_per_epoch = 100
-validation_steps = 10
-epochs = 20
-batch_size = 32
+steps_per_epoch = 1000
+validation_steps = 100
+epochs = 10
+batch_size = 64
 random_seed = 667
 
 image_size = 128
@@ -79,7 +79,7 @@ for qrcodes_task in qrcodes_tasks:
     }
 
     # Date time string.
-    datetime_string = utils.get_datetime_string()
+    datetime_string = utils.get_datetime_string() + "_{}-{}".format(len(qrcodes_train), len(qrcodes_validate))
 
     # Output path. Ensure its existence.
     output_path = os.path.join("/whhdata/models", datetime_string)
@@ -89,7 +89,7 @@ for qrcodes_task in qrcodes_tasks:
 
     # Important things.
     pp = pprint.PrettyPrinter(indent=4)
-    log_dir = os.path.join("/whhdata/models", "logs", datetime_string + "_{}{}".format(len(qrcodes_train), len(qrcodes_validate)))
+    log_dir = os.path.join("/whhdata/models", "logs", datetime_string)
     tensorboard_callback = callbacks.TensorBoard(log_dir=log_dir)
     histories = {}
 
