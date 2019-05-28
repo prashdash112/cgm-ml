@@ -24,7 +24,7 @@ print("Using dataset path", dataset_path)
 # Hyperparameters.
 steps_per_epoch = 100
 validation_steps = 10
-epochs = 50
+epochs = 75
 batch_size = 64
 random_seed = 667
 
@@ -33,7 +33,7 @@ image_size = 128
 # For creating pointclouds.
 dataset_parameters = {}
 dataset_parameters["input_type"] = "rgbmap"
-dataset_parameters["output_targets"] = ["weight"]
+dataset_parameters["output_targets"] = ["height"]
 dataset_parameters["random_seed"] = 666
 dataset_parameters["filter"] = "360"
 dataset_parameters["sequence_length"] = 0#4
@@ -79,7 +79,7 @@ for qrcodes_task in qrcodes_tasks:
     }
 
     # Date time string.
-    datetime_string = utils.get_datetime_string() + "_{}-{}".format(len(qrcodes_train), len(qrcodes_validate))
+    datetime_string = utils.get_datetime_string() + "_{}-{}".format(len(qrcodes_train), len(qrcodes_validate)) + "_".join(dataset_parameters["output_targets"])
 
     # Output path. Ensure its existence.
     output_path = os.path.join("/whhdata/models", datetime_string)
