@@ -30,7 +30,7 @@ epochs = 100
 batch_size = 64
 random_seed = 667
 
-if len(utils.get_available_gpus()) != 0:
+if len(utils.get_available_gpus()) == 0:
     output_root_path = "."
     steps_per_epoch = 1
     validation_steps = 1
