@@ -13,6 +13,7 @@ except Exception as e:
 from pyntcloud import PyntCloud
 import pickle
 import random
+from tensorflow.python.client import device_lib
 
     
 def load_pcd_as_ndarray(pcd_path):
@@ -394,3 +395,8 @@ def create_training_tasks(qrcodes, subset_sizes, random_seed=666):
         qrcodes_validate = sorted(qrcodes_shuffle_subset[split_index:])
         qrcodes_tasks.append((qrcodes_train, qrcodes_validate))
     return qrcodes_tasks
+
+
+def get_available_gpus():
+    local_device_protos = device_lib.list_local_devices()
+    return [x.name for x in local_device_protos if x.device_type == 'GPU']
