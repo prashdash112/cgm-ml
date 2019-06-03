@@ -336,7 +336,7 @@ def create_datagenerator_from_parameters(dataset_path, dataset_parameters):
     return datagenerator
 
 
-def get_dataset_path(root_path="../data/preprocessed"):
+def get_dataset_path(root_path="/whhdata/preprocessed"):
     if os.path.exists("etldatasetpath.txt"):
         with open("etldatasetpath.txt", "r") as file:
             dataset_path = file.read().replace("\n", "")

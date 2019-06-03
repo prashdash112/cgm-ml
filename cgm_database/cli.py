@@ -1,3 +1,7 @@
+"""
+This is the Command Line Interface (CLI) for CGM. It is supposed to be used during production. For example in a cronjob.
+"""
+
 import sys
 sys.path.insert(0, "..")
 import warnings
@@ -15,31 +19,33 @@ import pprint
 import pickle
 import dbutils
 import pandas as pd
+import multiprocessing
 
-
+# Database constants.
 MEASUREMENTS_TABLE = "measurements"
 IMAGES_TABLE = "image_data"
 POINTCLOUDS_TABLE = "pointcloud_data"
 
 commands = [
-    "init",
-    "updatemeasurements", # Uploads the CSV to the database.
-    "updatemedia", 
-    "statistics"
-    # TODO "filterpcds", 
-    # TODO "filterjpgs", 
-    # TODO "sortpcds",
-    # TODO "sortjpgs",
-    # TODO "rejectqrcode",
-    # TODO "acceptqrcode",
-    # TODO "listrejected",
-    # TODO "preprocess"
+    "init", # Initializes the database.
+    "updatemeasurements", # Synchronizes the measurements table.
+    "updatemedia", # Synchronizes the PCD- and JPG-table.
+    "statistics", # Yields simple statistics for the tables.
+    "filterpcds", # Yields filtered PCDs.
+    "filterjpgs", # Yields filtered JPGs.
+    # TODO "sortpcds", # Currently not supported.
+    # TODO "sortjpgs", # Currently not supported.
+    # TODO "rejectqrcode", # Currently not supported.
+    # TODO "acceptqrcode", # Currently not supported.
+    # TODO "listrejected", # Currently not supported.
+    "preprocess" # Creates a preprocessed dataset for training.
 ]
 
 main_connector = dbutils.connect_to_main_database()
 
 whhdata_path = "/whhdata"
 media_subpath = "person"
+preprocessed_root_path = "/whhdata/preprocessed"
 
 def main():
     parse_args()
@@ -90,10 +96,10 @@ def execute_command():
         result = execute_command_updatemedia()
     elif first_command == "statistics":
         result = execute_command_statistics()
-    #elif first_command == "filterpcds":
-    #    result = execute_command_filterpcds()
-    #elif first_command == "filterjpgs":
-    #    result = execute_command_filterjpgs()
+    elif first_command == "filterpcds":
+        result = execute_command_filterpcds()
+    elif first_command == "filterjpgs":
+        result = execute_command_filterjpgs()
     #elif first_command == "sortpcds":
     #    result = execute_command_sortpcds(sort_key="number_of_points", reverse=True)
     #elif first_command == "sortjpgs":
@@ -106,8 +112,8 @@ def execute_command():
     #    result = execute_command_acceptqrcode(args.command[1])
     #elif first_command == "listrejected":
     #    result = execute_command_listrejected()
-    #elif first_command == "preprocess":
-    #    result = execute_command_preprocess()
+    elif first_command == "preprocess":
+        result = execute_command_preprocess()
     else:
         raise Exception("Unexpected {}.".format(args.command))
         
@@ -193,39 +199,38 @@ def execute_command_updatemeasurements():
     print("Number of rows after: {}".format(rows_number))
  
 
-def execute_command_updatemedia(update_default_values=False):
+def execute_command_updatemedia(update_default_values=True, update_jpgs=False, update_pcds=True):
     print("Updating media...")
     
     # Process JPGs.
-    # TODO openpose
-    # TODO ...
-    table = IMAGES_TABLE
-    glob_search_path = os.path.join(args.path, media_subpath, "**/*.jpg")
-    print("Searching at {}... This might take a while!".format(glob_search_path))
-    jpg_paths = glob.glob(glob_search_path) # TODO make this work again!
-    #jpg_paths = ["/whhdata/person/MH_WHH_0153/measurements/1537860868501/rgb/rgb_MH_WHH_0153_1537860868501_104_95405.92970875901.jpg"]
-    #jpg_paths = jpg_paths * 10000
-    #print(len(jpg_paths))
-    print("Found {} JPGs.".format(len(jpg_paths)))
-    update_media_table(jpg_paths, IMAGES_TABLE, get_image_values)
+    if update_jpgs == True:
+        # TODO openpose
+        # TODO ...
+        table = IMAGES_TABLE
+        glob_search_path = os.path.join(args.path, media_subpath, "**/*.jpg")
+        print("Searching at {}... This might take a while!".format(glob_search_path))
+        jpg_paths = glob.glob(glob_search_path) # TODO make this work again!
+        #jpg_paths = ["/whhdata/person/MH_WHH_0153/measurements/1537860868501/rgb/rgb_MH_WHH_0153_1537860868501_104_95405.92970875901.jpg"]
+        print("Found {} JPGs.".format(len(jpg_paths)))
+        update_media_table(jpg_paths, IMAGES_TABLE, get_image_values)
     
     # Process PCDs.
-    table = POINTCLOUDS_TABLE
-    glob_search_path = os.path.join(args.path, media_subpath, "**/*.pcd")
-    print("Searching at {}... This might take a while!".format(glob_search_path))
-    pcd_paths = glob.glob(glob_search_path)
-    #pcd_paths = ["/whhdata/person/MH_WHH_0030/measurements/1536913928288/pc/pc_MH_WHH_0030_1536913928288_104_000.pcd"]
-    print("Found {} PCDs.".format(len(pcd_paths)))
-    update_media_table(pcd_paths, POINTCLOUDS_TABLE, get_pointcloud_values)
+    if update_pcds == True:
+        table = POINTCLOUDS_TABLE
+        glob_search_path = os.path.join(args.path, media_subpath, "**/*.pcd")
+        print("Searching at {}... This might take a while!".format(glob_search_path))
+        pcd_paths = glob.glob(glob_search_path)
+        #pcd_paths = ["/whhdata/person/MH_WHH_0030/measurements/1536913928288/pc/pc_MH_WHH_0030_1536913928288_104_000.pcd"]
+        print("Found {} PCDs.".format(len(pcd_paths)))
+        update_media_table(pcd_paths, POINTCLOUDS_TABLE, get_pointcloud_values, batch_size=100)
 
     
-def update_media_table(file_paths, table, get_values):
+def update_media_table(file_paths, table, get_values, batch_size=1000):
     insert_count = 0
     no_measurements_count = 0
     skip_count = 0
     bar = progressbar.ProgressBar(max_value=len(file_paths))
     sql_statement = ""
-    batch_size = 1000
     last_index = len(file_paths) - 1
     for index, file_path in enumerate(file_paths):
         bar.update(index)
@@ -249,11 +254,15 @@ def update_media_table(file_paths, table, get_values):
         
         # Found a result. Update.
         elif len(results) != 0:
+            # TODO check if measurement id is missing or not
             skip_count += 1
         
         # Update database.
         if index != 0 and ((index % batch_size) == 0) or index == last_index:
             if sql_statement != "":
+                #print("")
+                #print(sql_statement)
+                #print("")
                 result = main_connector.execute(sql_statement)
                 sql_statement = ""
    
@@ -274,6 +283,9 @@ def get_default_values(path, table):
     qrcode = path_split[3]
     timestamp = path_split[-1].split("_")[-3]
     
+    # Getting timestamp.
+    last_updated, _ = get_last_updated()
+
     # Get id of measurement.
     threshold = int(60 * 60 * 24 * 1000)
     sql_statement = dbutils.create_select_statement("measurements", ["qrcode"], [qrcode])
@@ -286,24 +298,21 @@ def get_default_values(path, table):
     sql_statement += ";"
     results = main_connector.execute(sql_statement, fetch_all=True)
     
-    # Measurement id not found. Return empty dictionary.
-    if len(results) == 0:
-        print("No measurement_id found for {}".format(path))
-        return None
-
-    # Found a measurement id.
-    measurement_id = results[0][0]
-    
-    # Getting timestamp.
-    last_updated, _ = get_last_updated()
-
-    # Done.
+    # Prepare values.
     values = {}
     values["path"] = path
     values["qrcode"] = qrcode
     values["last_updated"] = last_updated
     values["rejected_by_expert"] = False
-    values["measurement_id"] = measurement_id
+
+    # Measurement id not found.
+    if len(results) == 0:
+        print("No measurement_id found for {}".format(path))
+        
+    # Found a measurement id.
+    else:
+        values["measurement_id"] = results[0][0]
+    
     return values
     
     
@@ -314,11 +323,20 @@ def get_last_updated():
     
     
 def get_pointcloud_values(path):
-    number_of_points = 0.0
+    number_of_points = 0
     confidence_min = 0.0
     confidence_avg = 0.0
     confidence_std = 0.0
     confidence_max = 0.0
+    
+    centroid_x = 0.0
+    centroid_y = 0.0
+    centroid_z = 0.0
+    
+    stdev_x = 0.0
+    stdev_y = 0.0
+    stdev_z = 0.0
+    
     error = False
     error_message = ""
     
@@ -329,6 +347,15 @@ def get_pointcloud_values(path):
         confidence_avg = float(np.mean(pointcloud[:,3]))
         confidence_std = float(np.std(pointcloud[:,3]))
         confidence_max = float(np.max(pointcloud[:,3]))
+        
+        centroid_x = float(np.mean(pointcloud[:,0]))
+        centroid_y = float(np.mean(pointcloud[:,1]))
+        centroid_z = float(np.mean(pointcloud[:,2]))
+        
+        stdev_x = float(np.mean(pointcloud[:,0]))
+        stdev_y = float(np.mean(pointcloud[:,1]))
+        stdev_z = float(np.mean(pointcloud[:,2]))
+        
     except Exception as e:
         print("\n", path, e)
         error = True
@@ -344,6 +371,12 @@ def get_pointcloud_values(path):
     values["confidence_avg"] = confidence_avg
     values["confidence_std"] = confidence_std
     values["confidence_max"] = confidence_max
+    values["centroid_x"] = centroid_x
+    values["centroid_y"] = centroid_y
+    values["centroid_z"] = centroid_z
+    values["stdev_x"] = stdev_x
+    values["stdev_y"] = stdev_y
+    values["stdev_z"] = stdev_z
     values["had_error"] = error
     values["error_message"] = error_message
     return values
@@ -373,6 +406,7 @@ def get_image_values(path):
     values["width_px"] = width
     values["height_px"] = height
     values["blur_variance"] = blur_variance
+    values["has_face"] = False # TODO fix
     values["had_error"] = error
     values["error_message"] = error_message
     return values
@@ -386,18 +420,27 @@ def get_blur_variance(image):
 def execute_command_statistics():
     result_string = ""
     
+    # Getting table sizes.
     tables = ["measurements", "image_data", "pointcloud_data"]
     for table in tables:
         sql_statement = "SELECT COUNT(*) FROM {};".format(table)
-        result = main_connector.execute(sql_statement, fetch_one=True)
-        result_string += "Table {} has {} entries.\n".format(table, result[0])
+        result = main_connector.execute(sql_statement, fetch_one=True)[0]
+        result_string += "Table {} has {} entries.\n".format(table, result)
+    
+    # Find the number of rows that lack measurement-id.
+    tables = ["image_data", "pointcloud_data"]
+    for table in tables:
+        sql_statement = "SELECT COUNT(*) FROM {} WHERE measurement_id IS NULL;".format(table)
+        result = main_connector.execute(sql_statement, fetch_one=True)[0]
+        result_string += "Table {} has {} entries without measurement-id.\n".format(table, result)
     
     return result_string
     
     
 def execute_command_filterpcds(
     number_of_points_threshold=10000, 
-    confidence_avg_threshold=0.75, 
+    confidence_avg_threshold=0.75,
+    remove_unreasonable=True,
     remove_errors=True, 
     remove_rejects=True, 
     sort_key=None, 
@@ -405,29 +448,52 @@ def execute_command_filterpcds(
     
     print("Filtering DB...")
     
-    entries = db_connector.select_all(from_table="pcd_table")
-    result_entries = []
-    for values in entries:
-        
-        # Remove everything that does not have enough points.
-        if int(values["number_of_points"]) < number_of_points_threshold:
-            continue
-        # Remove everything that does not have a high enough average confidence.
-        if float(values["confidence_avg"]) < confidence_avg_threshold:
-            continue
-        # Remove everything that has an error.
-        if remove_errors == True and bool(values["error"]) == True:
-            continue
-        # Remove everything that has been rejected by an expert.
-        if remove_rejects == True and bool(values["rejected_by_expert"]) == True:
-            continue
-        result_entries.append(values)
-        
-    if sort_key != None:
-        print("Sorting", sort_key, sort_reverse)
-        result_entries = list(sorted(result_entries, key=lambda x: float(x[sort_key]), reverse=sort_reverse))   
+    sql_statement = ""
+    # Get all pointclouds.
+    sql_statement += "SELECT * FROM {}".format(POINTCLOUDS_TABLE)
     
-    return { "results" : result_entries }
+    # Join them with measurements.
+    sql_statement += " INNER JOIN measurements ON {}.measurement_id=measurements.id".format(POINTCLOUDS_TABLE)
+    
+    # Remove pointclouds that have to few points.
+    sql_statement += " WHERE number_of_points > {}".format(number_of_points_threshold) 
+    
+    # Only take into account manual measurements.
+    sql_statement += " AND measurements.type=\'manual\'"
+    
+    # Remove pointclouds that have a confidence that is too low.
+    sql_statement += " AND confidence_avg > {}".format(confidence_avg_threshold)
+    
+    # Ignore measurements that are not plausible.
+    if remove_unreasonable == True:
+        sql_statement += " AND measurements.height_cms >= 60"
+        sql_statement += " AND measurements.height_cms <= 120"
+        sql_statement += " AND measurements.weight_kgs >= 2"
+        sql_statement += " AND measurements.weight_kgs <= 20"
+    
+    # Remove errors.
+    if remove_errors == True:
+        sql_statement += " AND had_error = false" 
+    
+    # Remove rejected samples.
+    if remove_rejects == True:
+        sql_statement += " AND rejected_by_expert = false" 
+    
+    # Do some sorting.
+    if sort_key != None:
+        sql_statement += " ORDER BY {}".format(sort_key) 
+        if sort_reverse == False:
+            sql_statement += " ASC" 
+        else:
+            sql_statement += " DESC"
+    
+    # Execute statement.
+    results = main_connector.execute(sql_statement, fetch_all=True)
+    columns = []
+    columns.extend(main_connector.get_columns(POINTCLOUDS_TABLE))
+    columns.extend(main_connector.get_columns(MEASUREMENTS_TABLE))
+    results = [dict(list(zip(columns, result))) for result in results]
+    return { "results" : results }
 
         
 def execute_command_filterjpgs(
@@ -439,27 +505,29 @@ def execute_command_filterjpgs(
     
     print("Filtering DB...")
     
-    entries = db_connector.select_all(from_table="jpg_table")
-    result_entries = []
-    for values in entries:
-        
-        # Remove that is too blurry.
-        if int(values["blur_variance"]) < blur_variance_threshold:
-            continue
-        # Remove everything that has an error.
-        if remove_errors == True and bool(values["error"]) == True:
-            continue
-        # Remove everything that has been rejected by an expert.
-        if remove_rejects == True and bool(values["rejected_by_expert"]) == True:
-            continue
-        result_entries.append(values)
-        
+    sql_statement = ""
+    sql_statement += "SELECT * FROM {}".format(IMAGES_TABLE)
+    sql_statement += " INNER JOIN measurements ON {}.measurement_id=measurements.id".format(IMAGES_TABLE)
+    sql_statement += " WHERE blur_variance > {}".format(blur_variance_threshold) 
+    sql_statement += " AND measurements.type=\'manual\'"
+    if remove_errors == True:
+        sql_statement += " AND had_error = false" 
+    if remove_rejects == True:
+        sql_statement += " AND rejected_by_expert = false" 
     if sort_key != None:
-        print("Sorting", sort_key, sort_reverse)
-        result_entries = list(sorted(result_entries, key=lambda x: float(x[sort_key]), reverse=sort_reverse))   
+        sql_statement += " ORDER BY {}".format(sort_key) 
+        if sort_reverse == False:
+            sql_statement += " ASC" 
+        else:
+            sql_statement += " DESC"
+
+    results = main_connector.execute(sql_statement, fetch_all=True)
+    columns = []
+    columns.extend(main_connector.get_columns(IMAGES_TABLE))
+    columns.extend(main_connector.get_columns(MEASUREMENTS_TABLE))
+    results = [dict(list(zip(columns, result))) for result in results]
+    return { "results" : results }
     
-    return { "results" : result_entries }
-        
         
 def execute_command_sortpcds(sort_key, sort_reverse):
     print("Sorting DB...")
@@ -539,7 +607,6 @@ def execute_command_acceptqrcode(qrcode):
  
 
 def execute_command_listrejected():
-    
     return {
         "rejected_pcds": db_connector.select_all(from_table="pcd_table", where=("rejected_by_expert", True)),
         "rejected_jpgs": db_connector.select_all(from_table="jpg_table", where=("rejected_by_expert", True))
@@ -558,48 +625,114 @@ def execute_command_preprocess(preprocess_pcds=True, preprocess_jpgs=False):
     
     # Process the filtered PCDs.
     if preprocess_pcds == True:
-        entries = execute_command_filterpcds()["results"]
+        # Filter parameters.
+        number_of_points_threshold=10000
+        confidence_avg_threshold=0.75
+        remove_unreasonable=True
+        remove_errors=True
+        remove_rejects=True 
+        
+        # Save filter parameters.
+        filter_parameters_path = os.path.join(base_path, "filter_parameters.txt")
+        with open(filter_parameters_path, "w") as filter_parameters_file:
+            filter_parameters_file.write("number_of_points_threshold" + "," + str(number_of_points_threshold) + "\n")
+            filter_parameters_file.write("confidence_avg_threshold" + "," + str(confidence_avg_threshold) + "\n")
+            filter_parameters_file.write("remove_unreasonable" + "," + str(remove_unreasonable) + "\n")
+            filter_parameters_file.write("remove_errors" + "," + str(remove_errors) + "\n")
+            filter_parameters_file.write("remove_rejects" + "," + str(remove_rejects) + "\n")
+        
+        # Get filtered entries.
+        entries = execute_command_filterpcds(
+            number_of_points_threshold=number_of_points_threshold,
+            confidence_avg_threshold=confidence_avg_threshold,
+            remove_unreasonable=remove_unreasonable,
+            remove_errors=remove_errors,
+            remove_rejects=remove_rejects
+        )["results"]
         print("Found {} PCDs. Processing...".format(len(entries)))
-        bar = progressbar.ProgressBar(max_value=len(entries))
-        for index, entry in enumerate(entries):
-            bar.update(index)
+        
+        # Method for processing a single entry.
+        def process_pcd_entry(entry):
             path = entry["path"]
             if os.path.exists(path) == False:
                 print("\n", "File {} does not exist!".format(path), "\n")
-                continue
+                return
             pointcloud = utils.load_pcd_as_ndarray(path)
-            targets = np.array([float(value) for value in entry["targets"].split(",")])
+            targets = np.array([entry["height_cms"], entry["weight_kgs"]])
             qrcode = entry["qrcode"]
-            pickle_filename = entry["id"].replace(".pcd", ".p")
+            pickle_filename = os.path.basename(entry["path"]).replace(".pcd", ".p")
             qrcode_path = os.path.join(base_path, "pcd", qrcode)
             if os.path.exists(qrcode_path) == False:
                 os.mkdir(qrcode_path)
             pickle_output_path = os.path.join(qrcode_path, pickle_filename)
             pickle.dump((pointcloud, targets), open(pickle_output_path, "wb"))
-        bar.finish()
+        
+        # Start multiprocessing.
+        multiprocess(entries, process_pcd_entry)
     
     # Process the filtered JPGs.
     if preprocess_jpgs == True:
         entries = execute_command_filterjpgs()["results"]
         print("Found {} JPGs. Processing...".format(len(entries)))
         bar = progressbar.ProgressBar(max_value=len(entries))
-        for index, entry in enumerate(entries):
-            bar.update(index)
+        
+        # Method for processing a single entry.
+        def process_jpg_entry(entry):
             path = entry["path"]
             if os.path.exists(path) == False:
                 print("\n", "File {} does not exist!".format(path), "\n")
-                continue
+                return
             image = cv2.imread(path)
-            targets = np.array([float(value) for value in entry["targets"].split(",")])
+            targets = np.array([entry["height_cms"], entry["weight_kgs"]])
             qrcode = entry["qrcode"]
-            pickle_filename = entry["id"].replace(".jpg", ".p")
+            pickle_filename = os.path.basename(entry["path"]).replace(".jpg", ".p")
             qrcode_path = os.path.join(base_path, "jpg", qrcode)
             if os.path.exists(qrcode_path) == False:
                 os.mkdir(qrcode_path)
             pickle_output_path = os.path.join(qrcode_path, pickle_filename)
             pickle.dump((image, targets), open(pickle_output_path, "wb"))
-        bar.finish()
+        
+        # Start multiprocessing.
+        multiprocess(entries, process_pcd_entry)
     
+    
+def multiprocess(entries, process_entry_method):
+    # Get number of workers.
+    number_of_workers = multiprocessing.cpu_count()
+    print("Using {} workers...".format(number_of_workers))
+
+    # Split into list.
+    entry_sublists = np.array_split(entries, number_of_workers)
+    assert len(entry_sublists) == number_of_workers
+    assert np.sum([len(entry_sublist) for entry_sublist in entry_sublists] ) == len(entries)
+
+    # Define an output queue
+    output = multiprocessing.Queue()
+
+    def multiprocess_target(entry_sublist):
+        bar = progressbar.ProgressBar(max_value=len(entry_sublist))
+        for entry_index, entry in enumerate(entry_sublist):
+            bar.update(entry_index)
+            process_entry_method(entry)
+        bar.finish()
+        output.put("Processed {}".format(len(entry_sublist)))
+
+    # Setup a list of processes that we want to run
+    processes = [multiprocessing.Process(target=multiprocess_target, args=(entry_sublist,)) for entry_sublist in entry_sublists]
+
+    # Run processes
+    for process in processes:
+        process.start()
+
+    # Exit the completed processes
+    for process in processes:
+        process.join()
+
+    # Get process results from the output queue
+    results = [output.get() for process in processes]
+
+    print(results)  
+      
         
 if __name__ == "__main__":
     main()
