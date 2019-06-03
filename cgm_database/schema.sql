@@ -65,3 +65,56 @@ CREATE TABLE IF NOT EXISTS pointcloud_data (
 
     measurement_id INTEGER REFERENCES measurements(id)
 );
+
+-- Creates a table for artifacts
+CREATE TABLE IF NOT EXISTS artifacts (
+    id VARCHAR(255) PRIMARY KEY,
+    type TEXT NOT NULL,
+    path TEXT NOT NULL,
+    hash_value TEXT NOT NULL,
+    file_size BIGINT NOT NULL,
+    upload_date BIGINT NOT NULL,
+    deleted BOOLEAN NOT NULL,
+    qr_code TEXT NOT NULL,
+    create_date BIGINT NOT NULL,
+    created_by TEXT NOT NULL,
+    status integer NOT NULL
+);
+
+-- Creates a table for persons
+CREATE TABLE IF NOT EXISTS persons (
+    id VARCHAR(255) PRIMARY KEY,
+    name TEXT NOT NULL,
+    surname TEXT NOT NULL,
+    birthday BIGINT NOT NULL,
+    sex TEXT NOT NULL,
+    guardian TEXT NOT NULL,
+    is_age_estimated BOOLEAN NOT NULL,
+    qr_code TEXT NOT NULL,
+    created BIGINT NOT NULL,
+    timestamp BIGINT NOT NULL,
+    created_by TEXT NOT NULL,
+    deleted BOOLEAN NOT NULL,
+    deleted_by TEXT NOT NULL
+);
+
+
+-- Creates a table for measures
+CREATE TABLE IF NOT EXISTS measures (
+    id VARCHAR(255) PRIMARY KEY,
+    person_id TEXT REFERENCES persons(id),
+    date BIGINT NOT NULL,
+    type TEXT NOT NULL,
+    age BIGINT NOT NULL,
+    height DOUBLE NOT NULL,
+    weight DOUBLE NOT NULL,
+    muac DOUBLE NOT NULL,
+    head_circumference DOUBLE NOT NULL,
+    artifact TEXT NOT NULL,
+    visible BOOLEAN NOT NULL,
+    oedema BOOLEAN NOT NULL,
+    timestamp BIGINT NOT NULL,
+    created_by TEXT NOT NULL,
+    deleted BOOLEAN NOT NULL,
+    deleted_by TEXT NOT NULL    
+);
