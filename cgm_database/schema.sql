@@ -66,8 +66,8 @@ CREATE TABLE IF NOT EXISTS pointcloud_data (
     measurement_id INTEGER REFERENCES measurements(id)
 );
 
--- Creates a table for artifacts
-CREATE TABLE IF NOT EXISTS artifacts (
+-- Creates a table for artifact
+CREATE TABLE IF NOT EXISTS artifact (
     id VARCHAR(255) PRIMARY KEY,
     type TEXT NOT NULL,
     path TEXT NOT NULL,
@@ -81,8 +81,8 @@ CREATE TABLE IF NOT EXISTS artifacts (
     status integer NOT NULL
 );
 
--- Creates a table for persons
-CREATE TABLE IF NOT EXISTS persons (
+-- Creates a table for person
+CREATE TABLE IF NOT EXISTS person (
     id VARCHAR(255) PRIMARY KEY,
     name TEXT NOT NULL,
     surname TEXT NOT NULL,
@@ -99,8 +99,8 @@ CREATE TABLE IF NOT EXISTS persons (
 );
 
 
--- Creates a table for measures
-CREATE TABLE IF NOT EXISTS measures (
+-- Creates a table for measure
+CREATE TABLE IF NOT EXISTS measure (
     id VARCHAR(255) PRIMARY KEY,
     person_id TEXT REFERENCES persons(id),
     date BIGINT NOT NULL,
