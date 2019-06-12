@@ -102,7 +102,7 @@ CREATE TABLE IF NOT EXISTS person (
 -- Creates a table for measure
 CREATE TABLE IF NOT EXISTS measure (
     id VARCHAR(255) PRIMARY KEY,
-    person_id TEXT REFERENCES persons(id),
+    person_id TEXT REFERENCES person(id),
     date BIGINT NOT NULL,
     type TEXT NOT NULL,
     age BIGINT NOT NULL,
