@@ -2,6 +2,71 @@
 -- DROP SCHEMA public CASCADE;
 -- CREATE SCHEMA public;
 
+-- Creates a table for person
+CREATE TABLE IF NOT EXISTS person (
+    id VARCHAR(255) PRIMARY KEY,
+    name TEXT NOT NULL,
+    surname TEXT NOT NULL,
+    birthday BIGINT NOT NULL,
+    sex TEXT NOT NULL,
+    guardian TEXT NOT NULL,
+    is_age_estimated BOOLEAN NOT NULL,
+    qr_code TEXT NOT NULL,
+    created BIGINT NOT NULL,
+    timestamp BIGINT NOT NULL,
+    created_by TEXT NOT NULL,
+    deleted BOOLEAN NOT NULL,
+    deleted_by TEXT NOT NULL
+);
+
+-- Creates a table for measure
+-- TODO needs location data
+CREATE TABLE IF NOT EXISTS measure (
+    id VARCHAR(255) PRIMARY KEY,
+    person_id TEXT REFERENCES person(id),
+    date BIGINT NOT NULL,
+    type TEXT NOT NULL,
+    age BIGINT NOT NULL,
+    height DOUBLE NOT NULL,
+    weight DOUBLE NOT NULL,
+    muac DOUBLE NOT NULL,
+    head_circumference DOUBLE NOT NULL,
+    artifact TEXT NOT NULL,
+    visible BOOLEAN NOT NULL,
+    oedema BOOLEAN NOT NULL,
+    timestamp BIGINT NOT NULL,
+    created_by TEXT NOT NULL,
+    deleted BOOLEAN NOT NULL,
+    deleted_by TEXT NOT NULL    
+);
+
+-- Creates a table for artifact
+CREATE TABLE IF NOT EXISTS artifact (
+    id VARCHAR(255) PRIMARY KEY,
+    type TEXT NOT NULL,
+    path TEXT NOT NULL,
+    hash_value TEXT NOT NULL,
+    file_size BIGINT NOT NULL,
+    upload_date BIGINT NOT NULL,
+    deleted BOOLEAN NOT NULL,
+    qr_code TEXT NOT NULL,
+    create_date BIGINT NOT NULL,
+    created_by TEXT NOT NULL,
+    status integer NOT NULL
+);
+
+-- Creates a table for storing artifact quality assessments.
+CREATE TABLE IF NOT EXISTS artifact_quality (
+    PRIMARY KEY(artifact_id, type, key),
+    type TEXT NOT NULL,
+    key TEXT NOT NULL,
+    value REAL NOT NULL,
+    misc TEXT,
+    artifact_id VARCHAR(255) REFERENCES artifact(id)
+)
+
+
+-- TODO to be removed and (if necessary) replaced with VIEW of person and measure
 -- Creates a table for measurements.
 CREATE TABLE IF NOT EXISTS measurements (
     id SERIAL PRIMARY KEY,
@@ -26,6 +91,7 @@ CREATE TABLE IF NOT EXISTS measurements (
     created_by TEXT NOT NULL
 );
 
+-- TODO to be removed and (if necessary) replaced with VIEW of artifact and artifact_quality
 -- Creates a table for image data.
 CREATE TABLE IF NOT EXISTS image_data (
     id SERIAL PRIMARY KEY,
@@ -42,6 +108,7 @@ CREATE TABLE IF NOT EXISTS image_data (
     measurement_id INTEGER REFERENCES measurements(id)
 );
 
+-- TODO to be removed and (if necessary) replaced with VIEW of artifact and artifact_quality
 -- Creates a table for pointcloud data.
 CREATE TABLE IF NOT EXISTS pointcloud_data (
     id SERIAL PRIMARY KEY,
@@ -65,13 +132,3 @@ CREATE TABLE IF NOT EXISTS pointcloud_data (
 
     measurement_id INTEGER REFERENCES measurements(id)
 );
-
--- Creates a table for artifacts quality.
-CREATE TABLE IF NOT EXISTS artifact_quality (
-    PRIMARY KEY(artifact_id, type, key),
-    type TEXT NOT NULL,
-    key TEXT NOT NULL,
-    value REAL NOT NULL,
-    misc TEXT,
-    artifact_id INTEGER REFERENCES pointcloud_data(id)
-)
