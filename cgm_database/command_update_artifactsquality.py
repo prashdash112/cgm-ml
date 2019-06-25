@@ -13,9 +13,86 @@ import progressbar
 import psycopg2
 import glob
 import pickle
-
+import cv2
 
 def main():
+    
+    if sys.argv[1] == "bluriness":
+        update_artifactsquality_with_bluriness()
+    else:
+        print("ERROR!")
+
+    
+def update_artifactsquality_with_bluriness():
+    # Get all images.
+    sql_script = "SELECT id, path FROM artifact WHERE type='jpg'"
+    db_connector = dbutils.connect_to_main_database()
+    image_entries = db_connector.execute(sql_script, fetch_all=True)
+    print("Found {} images.".format(len(image_entries)))
+    
+    db_type = "UNKNOWN"
+    db_key = "bluriness"
+    
+    def process_image_entries(image_entries):
+        db_connector = dbutils.connect_to_main_database()
+        
+        # Go through all entries.
+        bar = progressbar.ProgressBar(max_value=len(image_entries))
+        for index, (artifact_id, path) in enumerate(image_entries):
+            bar.update(index)
+            
+            # Check if there is already an entry.
+            select_sql_statement = ""
+            select_sql_statement += "SELECT COUNT(*) FROM artifact_quality"
+            select_sql_statement += " WHERE artifact_id='{}'".format(artifact_id)
+            select_sql_statement += " AND type='{}'".format(db_type)
+            select_sql_statement += " AND key='{}'".format(db_key)
+            results = db_connector.execute(select_sql_statement, fetch_all=True)[0]
+            
+            # There is an entry. Skip
+            if results != 0:
+                continue
+            bluriness = get_blur_variance(path)
+            
+            # Create an SQL statement for insertion.
+            sql_statement = ""
+            sql_statement += "INSERT INTO artifact_quality (type, key, value, artifact_id, misc)"
+            sql_statement += " VALUES(\'{}\', \'{}\', \'{}\', \'{}\', \'{}\');".format(db_type, db_key, bluriness, artifact_id, "")
+            # Call database.
+            result = db_connector.execute(sql_statement)
+            
+        bar.finish()
+    
+    # Run this in multiprocess mode.
+    utils.multiprocess(
+        image_entries, 
+        process_method=process_image_entries, 
+        process_individial_entries=False, 
+        progressbar=False
+    )
+    print("Done.")
+    
+    
+def get_blur_variance(image_path):
+    try:
+        image = cv2.imread(image_path)
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        blur_variance = cv2.Laplacian(image, cv2.CV_64F).var()
+        return blur_variance
+    except Exception as e:
+        print("\n", image_path, e)
+        error = True
+        error_message = str(e)
+    except ValueError as e:
+        print("\n", image_path, e)
+        error = True
+        error_message = str(e)
+    return None
+
+
+
+    
+def update_artifactsquality_with_model():
 
     # Check the arguments.
     if len(sys.argv) != 2:
