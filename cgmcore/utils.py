@@ -16,6 +16,8 @@ import pickle
 import random
 from tensorflow.python.client import device_lib
 import multiprocessing
+import uuid
+
     
 def load_pcd_as_ndarray(pcd_path):
     """
@@ -417,7 +419,6 @@ def multiprocess(entries, process_method, number_of_workers=None, process_indivi
     # Get number of workers.
     if number_of_workers == None:
         number_of_workers = multiprocessing.cpu_count()
-    print("Using {} workers...".format(number_of_workers))
 
     # Split into list.
     entry_sublists = np.array_split(entries, number_of_workers)
@@ -435,13 +436,22 @@ def multiprocess(entries, process_method, number_of_workers=None, process_indivi
             for entry_index, entry in enumerate(entry_sublist):
                 if progressbar == True:
                     bar.update(entry_index)
-                process_method(entry)
+                result = process_method(entry)
             if progressbar == True:
                 bar.finish()
         # Process all.
         else:
-            process_method(entry_sublist)
-        output.put("Processed {}".format(len(entry_sublist)))
+            result = process_method(entry_sublist)
+            
+        # No results returned. Just provide status string.
+        if result == None:
+            output.put("Processed {}".format(len(entry_sublist)))
+        
+        # Results found. Playing it safe. Use pickle.
+        else:
+            pickle_path = str(uuid.uuid4()) + ".pickletemp"
+            pickle.dump(result, open(pickle_path, "wb"))
+            output.put(pickle_path)
 
     # Setup a list of processes that we want to run
     processes = [multiprocessing.Process(target=process_entries, args=(entry_sublist,)) for entry_sublist in entry_sublists]
@@ -454,8 +464,18 @@ def multiprocess(entries, process_method, number_of_workers=None, process_indivi
     for process in processes:
         process.join()
 
-    # Get process results from the output queue
-    results = [output.get() for process in processes]
-
-    print(results)  
+    # Get process results from the output queue.
+    results = []
+    for _ in processes:
+        result = output.get()
+        
+        # Results are in a pickle file.
+        if result.endswith(".pickletemp"):
+            results.extend(pickle.load(open(result, "rb")))
+            os.remove(result)
+        
+        # Just plain results.
+        else:
+            results.append(result)
+    return results  
       

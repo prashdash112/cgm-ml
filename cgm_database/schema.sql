@@ -27,10 +27,10 @@ CREATE TABLE IF NOT EXISTS measure (
     date BIGINT NOT NULL,
     type TEXT NOT NULL,
     age BIGINT NOT NULL,
-    height DOUBLE NOT NULL,
-    weight DOUBLE NOT NULL,
-    muac DOUBLE NOT NULL,
-    head_circumference DOUBLE NOT NULL,
+    height REAL NOT NULL,
+    weight REAL NOT NULL,
+    muac REAL NOT NULL,
+    head_circumference REAL NOT NULL,
     artifact TEXT NOT NULL,
     visible BOOLEAN NOT NULL,
     oedema BOOLEAN NOT NULL,
@@ -63,7 +63,7 @@ CREATE TABLE IF NOT EXISTS artifact_quality (
     value REAL NOT NULL,
     misc TEXT,
     artifact_id VARCHAR(255) REFERENCES artifact(id)
-)
+);
 
 
 -- TODO to be removed and (if necessary) replaced with VIEW of person and measure
