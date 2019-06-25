@@ -65,15 +65,11 @@ def execute_command_updatemedia(update_jpgs=False, update_pcds=True):
 
             # Found a result. Update.
             elif len(results) != 0:
-                # TODO check if measurement id is missing or not
                 skip_count += 1
 
             # Update database.
             if index != 0 and ((index % batch_size) == 0) or index == last_index:
                 if sql_statement != "":
-                    #print("")
-                    #print(sql_statement)
-                    #print("")
                     result = main_connector.execute(sql_statement)
                     sql_statement = ""
 
@@ -88,7 +84,7 @@ def execute_command_updatemedia(update_jpgs=False, update_pcds=True):
         process_method=process_artifact_paths, 
         process_individial_entries=False, 
         progressbar=False, 
-        number_of_workers=None
+        number_of_workers=1
     )
     
     
@@ -134,25 +130,25 @@ def get_default_values(file_path, table):
     assert path_split[1] == whhdata_path[1:]
     assert path_split[2] == media_subpath
     
-    # Get important values from path.
+    # Get QR-code and timestamp from path.
     qr_code = path_split[3]
     timestamp = path_split[-1].split("_")[-3]
     
-    # Getting timestamp.
+    # Getting last updated timestamp.
     last_updated, _ = get_last_updated()
 
-    # Get id of measurement. # TODO make this work
-    #threshold = int(60 * 60 * 24 * 1000)
-    #sql_statement = dbutils.create_select_statement("measurements", ["qrcode"], [qrcode])
-    #sql_statement = ""
-    #sql_statement += "SELECT id"
-    #sql_statement += " FROM measurements WHERE"
-    #sql_statement += " qrcode = '{}'".format(qrcode)
-    #sql_statement += " AND type = 'manual'"
-    #sql_statement += " AND ABS(timestamp - {}) < {}".format(timestamp, threshold)
-    #sql_statement += ";"
-    results = [] # TODO remove
+    # Get id of measurement.
+    threshold = int(60 * 60 * 24 * 1000)
+    sql_statement = dbutils.create_select_statement("measurements", ["qr_code"], [qr_code])
+    sql_statement = ""
+    sql_statement += "SELECT id"
+    sql_statement += " FROM measurements WHERE"
+    sql_statement += " qrcode = '{}'".format(qr_code)
+    sql_statement += " AND type = 'manual'"
+    sql_statement += " AND ABS(timestamp - {}) < {}".format(timestamp, threshold)
+    sql_statement += ";"
     #results = main_connector.execute(sql_statement, fetch_all=True)
+    results = [] # TODO make this work!
     
     # Prepare values.
     values = {}
@@ -281,7 +277,7 @@ def get_blur_variance(image):
 
 if __name__ == "__main__":
     
-    if len(sys.argv) != 2:
+    if len(sys.argv) != 2 and len(sys.argv) != 3:
         raise Exception("ERROR! Must specify what to update. [images|pointclouds|all]")
 
     # Parse command line arguments.
@@ -297,7 +293,18 @@ if __name__ == "__main__":
         print("Updating all...")
         update_jpgs = True
         update_pcds = True
-                        
+    
+    # TODO move this to somewhere else.
+    clear_table = False
+    if "clear" in sys.argv:
+        print("WARNING! Do you really want to clear the table? [y/n]")
+        if input() == "y":
+            print("CLEAR")
+            db_connector = dbutils.connect_to_main_database()
+            sql_statement = "DELETE FROM artifact;"
+            db_connector.execute(sql_statement)
+
+    # Run the thing.
     execute_command_updatemedia(update_jpgs, update_pcds)
                         
                         
