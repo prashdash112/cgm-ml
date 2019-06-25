@@ -277,7 +277,7 @@ def get_blur_variance(image):
 
 if __name__ == "__main__":
     
-    if len(sys.argv) != 2 and len(sys.argv) != 3:
+    if len(sys.argv) != 2:
         raise Exception("ERROR! Must specify what to update. [images|pointclouds|all]")
 
     # Parse command line arguments.
@@ -294,16 +294,6 @@ if __name__ == "__main__":
         update_jpgs = True
         update_pcds = True
     
-    # TODO move this to somewhere else.
-    clear_table = False
-    if "clear" in sys.argv:
-        print("WARNING! Do you really want to clear the table? [y/n]")
-        if input() == "y":
-            print("CLEAR")
-            db_connector = dbutils.connect_to_main_database()
-            sql_statement = "DELETE FROM artifact;"
-            db_connector.execute(sql_statement)
-
     # Run the thing.
     execute_command_updatemedia(update_jpgs, update_pcds)
                         

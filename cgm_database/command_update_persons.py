@@ -12,7 +12,7 @@ import time
 whhdata_path = "/whhdata"
 
 
-def execute_command_updatemeasurements():
+def execute_command_persons():
     print("Updating persons...")
     
     main_connector = dbutils.connect_to_main_database()
@@ -106,4 +106,4 @@ def execute_command_updatemeasurements():
     
     
 if __name__ == "__main__":
-    execute_command_updatemeasurements()
+    execute_command_persons()

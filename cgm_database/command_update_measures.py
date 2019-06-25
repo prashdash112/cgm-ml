@@ -34,7 +34,7 @@ def execute_command_updatemeasurements():
     print(columns)
     ignored_columns = ["sex", "address", "qrcode", "latitude", "longitude", "personId"]
     columns_mapping = { column: column for column in columns if column not in ignored_columns}
-    #columns_mapping["personId"] = "person_id"
+    columns_mapping["personId"] = "person_id"
     columns_mapping["headCircumference"] = "head_circumference"
     columns_mapping["deletedBy"] = "deleted_by"
     columns_mapping["createdBy"] = "created_by"
