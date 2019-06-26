@@ -91,44 +91,77 @@ CREATE TABLE IF NOT EXISTS measurements (
     created_by TEXT NOT NULL
 );
 
--- TODO to be removed and (if necessary) replaced with VIEW of artifact and artifact_quality
--- Creates a table for image data.
-CREATE TABLE IF NOT EXISTS image_data (
-    id SERIAL PRIMARY KEY,
-    path TEXT NOT NULL,
-    qrcode TEXT NOT NULL,
-    last_updated REAL NOT NULL,
-    rejected_by_expert BOOLEAN NOT NULL,
-    had_error BOOLEAN NOT NULL,
-    error_message TEXT,
-    width_px INTEGER NOT NULL,
-    height_px INTEGER NOT NULL,
-    blur_variance REAL NOT NULL,
-    has_face BOOLEAN NOT NULL,
-    measurement_id INTEGER REFERENCES measurements(id)
-);
+-- Creates a view for image data.
+DROP VIEW IF EXISTS image_data;
+CREATE VIEW image_data AS 
+SELECT 
+    id AS id
+    , path AS path
+    , qr_code AS qrcode
+    , 0 AS last_updated
+    , false AS rejected_by_expert
+    , false AS had_error
+    , null AS error_message
+    --, width_px INTEGER NOT NULL,
+    --, height_px INTEGER NOT NULL,
+    , aq1.value AS blur_variance
+    --, has_face BOOLEAN NOT NULL,
+    --, measurement_id INTEGER REFERENCES measurements(id)
+    
+    FROM artifact
+    INNER JOIN artifact_quality aq1 ON aq1.artifact_id=id
 
--- TODO to be removed and (if necessary) replaced with VIEW of artifact and artifact_quality
--- Creates a table for pointcloud data.
-CREATE TABLE IF NOT EXISTS pointcloud_data (
-    id SERIAL PRIMARY KEY,
-    path TEXT NOT NULL,
-    qrcode TEXT NOT NULL,
-    last_updated REAL NOT NULL,
-    rejected_by_expert BOOLEAN NOT NULL,
-    had_error BOOLEAN NOT NULL,
-    error_message TEXT,
-    number_of_points INTEGER NOT NULL,  
-    confidence_min REAL NOT NULL,
-    confidence_avg REAL NOT NULL,
-    confidence_std REAL NOT NULL,
-    confidence_max REAL NOT NULL,
-    centroid_x REAL NOT NULL, 
-    centroid_y REAL NOT NULL, 
-    centroid_z REAL NOT NULL, 
-    stdev_x REAL NOT NULL,
-    stdev_y REAL NOT NULL,
-    stdev_z REAL NOT NULL,
+    WHERE artifact.type='jpg'
+    AND aq1.key='bluriness'
+    ;
 
-    measurement_id INTEGER REFERENCES measurements(id)
-);
+-- Creates a view for pointcloud data.
+DROP VIEW IF EXISTS pointcloud_data;
+CREATE VIEW pointcloud_data AS
+SELECT 
+    id AS id
+    , path AS path
+    , qr_code AS qrcode
+    , 0 AS last_updated
+    , false AS rejected_by_expert
+    , false AS had_error
+    , null AS error_message
+    , aq1.value AS number_of_points
+    , aq2.value AS confidence_min
+    , aq3.value AS confidence_avg
+    , aq4.value AS confidence_std
+    , aq5.value AS confidence_max
+    , aq6.value AS centroid_x
+    , aq7.value AS centroid_y
+    , aq8.value AS centroid_z
+    , aq9.value AS stdev_x
+    , aq10.value AS stdev_y
+    , aq11.value AS stdev_z
+    --, measurement_id INTEGER REFERENCES measurements(id)
+    
+    FROM artifact
+    INNER JOIN artifact_quality aq1 ON aq1.artifact_id=id
+    INNER JOIN artifact_quality aq2 ON aq2.artifact_id=id
+    INNER JOIN artifact_quality aq3 ON aq3.artifact_id=id
+    INNER JOIN artifact_quality aq4 ON aq4.artifact_id=id
+    INNER JOIN artifact_quality aq5 ON aq5.artifact_id=id
+    INNER JOIN artifact_quality aq6 ON aq6.artifact_id=id
+    INNER JOIN artifact_quality aq7 ON aq7.artifact_id=id
+    INNER JOIN artifact_quality aq8 ON aq8.artifact_id=id
+    INNER JOIN artifact_quality aq9 ON aq9.artifact_id=id
+    INNER JOIN artifact_quality aq10 ON aq10.artifact_id=id
+    INNER JOIN artifact_quality aq11 ON aq11.artifact_id=id
+
+    WHERE artifact.type='pcd'
+    AND aq1.key='number_of_points'
+    AND aq2.key='confidence_min'
+    AND aq3.key='confidence_avg'
+    AND aq4.key='confidence_std'
+    AND aq5.key='confidence_max'
+    AND aq6.key='centroid_x'
+    AND aq7.key='centroid_y'
+    AND aq8.key='centroid_z'
+    AND aq9.key='stdev_x'
+    AND aq10.key='stdev_y'
+    AND aq11.key='stdev_z'
+    ;

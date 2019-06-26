@@ -49,7 +49,7 @@ def update_artifactsquality_with_bluriness():
             select_sql_statement += " WHERE artifact_id='{}'".format(artifact_id)
             select_sql_statement += " AND type='{}'".format(db_type)
             select_sql_statement += " AND key='{}'".format(db_key)
-            results = db_connector.execute(select_sql_statement, fetch_all=True)[0]
+            results = db_connector.execute(select_sql_statement, fetch_one=True)[0]
             
             # There is an entry. Skip
             if results != 0:
