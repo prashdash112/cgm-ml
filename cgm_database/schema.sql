@@ -166,3 +166,19 @@ SELECT
     AND aq10.key='stdev_y'
     AND aq11.key='stdev_z'
     ;
+
+-- Creates a view for ML training.
+DROP VIEW IF EXISTS artifacts_with_targets;
+CREATE VIEW artifacts_with_targets AS 
+SELECT
+    artifact.id AS artifact_id,
+    artifact.path AS artifact_path,
+    artifact.type AS type,
+    measure.age AS age,
+    measure.height AS height,
+    measure.weight AS weight,
+    measure.muac AS muac,
+    measure.head_circumference AS head_circumference
+    FROM artifact
+    INNER JOIN measure ON artifact.measure_id=measure.id
+    ;
