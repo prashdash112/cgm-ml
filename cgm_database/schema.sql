@@ -43,6 +43,7 @@ CREATE TABLE IF NOT EXISTS measure (
 -- Creates a table for artifact
 CREATE TABLE IF NOT EXISTS artifact (
     id VARCHAR(255) PRIMARY KEY,
+    measure_id TEXT REFERENCES measure(id),
     type TEXT NOT NULL,
     path TEXT NOT NULL,
     hash_value TEXT NOT NULL,

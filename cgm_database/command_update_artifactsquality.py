@@ -17,6 +17,10 @@ import cv2
 
 def main():
     
+    commands = ["bluriness", "pointcloud"]
+    
+    if len(sys.argv) == 1 OR sys.argv[1] not in commands:
+        print("ERROR! Must use one of", commands)
     if sys.argv[1] == "bluriness":
         update_artifactsquality_with_bluriness()
     elif sys.argv[1] == "pointcloud":

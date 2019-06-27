@@ -55,7 +55,7 @@ def execute_command_updatemedia(update_jpgs=False, update_pcds=True):
                 insert_data["id"] = basename # TODO proper?
 
                 # Process the artifact.
-                default_values = get_default_values(artifact_path, table)
+                default_values = get_default_values(artifact_path, table, main_connector)
                 if default_values != None:
                     insert_data.update(default_values)
                     sql_statement += dbutils.create_insert_statement(table, insert_data.keys(), insert_data.values())
@@ -123,7 +123,7 @@ def md5(file_path):
  
     
 
-def get_default_values(file_path, table):
+def get_default_values(file_path, table, db_connector):
      
     # Split and check the path.
     path_split = file_path.split("/")
@@ -139,16 +139,15 @@ def get_default_values(file_path, table):
 
     # Get id of measurement.
     threshold = int(60 * 60 * 24 * 1000)
-    sql_statement = dbutils.create_select_statement("measurements", ["qr_code"], [qr_code])
     sql_statement = ""
-    sql_statement += "SELECT id"
-    sql_statement += " FROM measurements WHERE"
-    sql_statement += " qrcode = '{}'".format(qr_code)
-    sql_statement += " AND type = 'manual'"
-    sql_statement += " AND ABS(timestamp - {}) < {}".format(timestamp, threshold)
+    sql_statement += "SELECT measure.id"
+    sql_statement += " FROM measure"
+    sql_statement += " INNER JOIN person ON measure.person_id=person.id"
+    sql_statement += " WHERE person.qr_code = '{}'".format(qr_code)
+    sql_statement += " AND measure.type = 'manual'"
+    sql_statement += " AND ABS(measure.timestamp - {}) < {}".format(timestamp, threshold)
     sql_statement += ";"
-    #results = main_connector.execute(sql_statement, fetch_all=True)
-    results = [] # TODO make this work!
+    results = db_connector.execute(sql_statement, fetch_all=True)
     
     # Prepare values.
     values = {}
@@ -169,7 +168,7 @@ def get_default_values(file_path, table):
         
     # Found a measurement id.
     else:
-        values["measurement_id"] = results[0][0]
+        values["measure_id"] = results[0][0]
     
     return values
     
