@@ -171,6 +171,7 @@ SELECT
 DROP VIEW IF EXISTS artifacts_with_targets;
 CREATE VIEW artifacts_with_targets AS 
 SELECT
+    person.qr_code AS qr_code,
     artifact.id AS artifact_id,
     artifact.path AS artifact_path,
     artifact.type AS type,
@@ -181,4 +182,5 @@ SELECT
     measure.head_circumference AS head_circumference
     FROM artifact
     INNER JOIN measure ON artifact.measure_id=measure.id
+    INNER JOIN person ON measure.person_id=person.id
     ;
