@@ -13,23 +13,19 @@ import pickle
 preprocessed_root_path = "/whhdata/preprocessed"
 
 main_connector = dbutils.connect_to_main_database()
-MEASUREMENTS_TABLE = "measurements"
-IMAGES_TABLE = "image_data"
-POINTCLOUDS_TABLE = "pointcloud_data"
-
 
 def execute_command_preprocess(preprocess_pcds=True, preprocess_jpgs=False):
     print("Preprocessing data-set...")
     
     # Create the base-folder.
-    datetime_path = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
-    base_path = os.path.join(preprocessed_root_path, datetime_path)
-    os.mkdir(base_path)
-    if preprocess_pcds == True:
-        os.mkdir(os.path.join(base_path, "pcd"))
-    if preprocess_jpgs == True:
-        os.mkdir(os.path.join(base_path, "jpg"))
-    print("Writing preprocessed data to {}...".format(base_path))
+    #datetime_path = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
+    #base_path = os.path.join(preprocessed_root_path, datetime_path)
+    #os.mkdir(base_path)
+    #if preprocess_pcds == True:
+    #    os.mkdir(os.path.join(base_path, "pcd"))
+    #if preprocess_jpgs == True:
+    #    os.mkdir(os.path.join(base_path, "jpg"))
+    #print("Writing preprocessed data to {}...".format(base_path))
     
     # Process the filtered PCDs.
     if preprocess_pcds == True:
@@ -61,14 +57,14 @@ def execute_command_preprocess(preprocess_pcds=True, preprocess_jpgs=False):
         
         # Method for processing a single entry.
         def process_pcd_entry(entry):
-            path = entry["path"]
+            path = entry["artifact_path"]
             if os.path.exists(path) == False:
                 print("\n", "File {} does not exist!".format(path), "\n")
                 return
             pointcloud = utils.load_pcd_as_ndarray(path)
-            targets = np.array([entry["height_cms"], entry["weight_kgs"]])
-            qrcode = entry["qrcode"]
-            pickle_filename = os.path.basename(entry["path"]).replace(".pcd", ".p")
+            targets = np.array([entry["height"], entry["weight"]])
+            qrcode = entry["qr_code"]
+            pickle_filename = os.path.basename(entry["artifact_path"]).replace(".pcd", ".p")
             qrcode_path = os.path.join(base_path, "pcd", qrcode)
             if os.path.exists(qrcode_path) == False:
                 os.mkdir(qrcode_path)
@@ -80,6 +76,7 @@ def execute_command_preprocess(preprocess_pcds=True, preprocess_jpgs=False):
     
     # Process the filtered JPGs.
     if preprocess_jpgs == True:
+        assert False
         entries = filterjpgs()["results"]
         print("Found {} JPGs. Processing...".format(len(entries)))
         bar = progressbar.ProgressBar(max_value=len(entries))
@@ -117,48 +114,24 @@ def filterpcds(
     
     sql_statement = ""
     # Get all pointclouds.
-    sql_statement += "SELECT * FROM {}".format(POINTCLOUDS_TABLE)
+    sql_statement += "SELECT * FROM artifacts_with_targets WHERE type='pcd'"
     
-    # Join them with measurements.
-    sql_statement += " INNER JOIN measurements ON {}.measurement_id=measurements.id".format(POINTCLOUDS_TABLE)
-    
-    # Remove pointclouds that have to few points.
-    sql_statement += " WHERE number_of_points > {}".format(number_of_points_threshold) 
-    
-    # Only take into account manual measurements.
-    sql_statement += " AND measurements.type=\'manual\'"
+    # TODO sql_statement += " WHERE number_of_points > {}".format(number_of_points_threshold) 
     
     # Remove pointclouds that have a confidence that is too low.
-    sql_statement += " AND confidence_avg > {}".format(confidence_avg_threshold)
+    # TODO sql_statement += " AND confidence_avg > {}".format(confidence_avg_threshold)
     
     # Ignore measurements that are not plausible.
     if remove_unreasonable == True:
-        sql_statement += " AND measurements.height_cms >= 60"
-        sql_statement += " AND measurements.height_cms <= 120"
-        sql_statement += " AND measurements.weight_kgs >= 2"
-        sql_statement += " AND measurements.weight_kgs <= 20"
-    
-    # Remove errors.
-    if remove_errors == True:
-        sql_statement += " AND had_error = false" 
-    
-    # Remove rejected samples.
-    if remove_rejects == True:
-        sql_statement += " AND rejected_by_expert = false" 
-    
-    # Do some sorting.
-    if sort_key != None:
-        sql_statement += " ORDER BY {}".format(sort_key) 
-        if sort_reverse == False:
-            sql_statement += " ASC" 
-        else:
-            sql_statement += " DESC"
+        sql_statement += " AND height >= 60"
+        sql_statement += " AND height <= 120"
+        sql_statement += " AND weight >= 2"
+        sql_statement += " AND weight <= 20"
     
     # Execute statement.
     results = main_connector.execute(sql_statement, fetch_all=True)
     columns = []
-    columns.extend(main_connector.get_columns(POINTCLOUDS_TABLE))
-    columns.extend(main_connector.get_columns(MEASUREMENTS_TABLE))
+    columns.extend(main_connector.get_columns("artifacts_with_targets"))
     results = [dict(list(zip(columns, result))) for result in results]
     return { "results" : results }
 
