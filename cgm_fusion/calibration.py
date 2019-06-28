@@ -3,7 +3,7 @@ import xmltodict
 import numpy as np
 
 import os
-calib_file = r'/home/cpfitzner/notebooks/cgm-ml/calibration.xml'
+calib_file = r'/whhdata/calibration.xml' # todo make this a parameter
 
 def get_intrinsic_matrix():
     with open(calib_file) as fd:
