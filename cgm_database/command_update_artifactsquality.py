@@ -14,20 +14,30 @@ import psycopg2
 import glob
 import pickle
 import cv2
+import posenet
+import tensorflow as tf
+import time
+
+
 
 def main():
     
-    commands = ["bluriness", "pointcloud"]
+    commands = ["bluriness", "pointcloud","posenet"]
     
-    if len(sys.argv) == 1 OR sys.argv[1] not in commands:
+    if len(sys.argv) == 1 or sys.argv[1] not in commands:
         print("ERROR! Must use one of", commands)
     if sys.argv[1] == "bluriness":
         update_artifactsquality_with_bluriness()
     elif sys.argv[1] == "pointcloud":
         update_artifactsquality_with_pointcloud_data()
+    elif sys.argv[1] == "posenet":
+        update_artifactsquality_with_posenet()
     else:
         print("ERROR!")
-
+   
+   
+  
+  
     
 def update_artifactsquality_with_bluriness():
     # Get all images.
@@ -302,6 +312,100 @@ def load_model(model_path):
     )
     return model 
 
+def update_artifactsquality_with_posenet():
+    # Get all images.
+    sql_script = "SELECT id, path FROM artifact WHERE type='jpg'"
+    db_connector = dbutils.connect_to_main_database()
+    image_entries = db_connector.execute(sql_script, fetch_all=True)
+    print("Found {} images.".format(len(image_entries)))
+    
+    db_type = "rgb"
+    db_key = "No of People"
+    
+    def process_image_entries(image_entries):
+        db_connector = dbutils.connect_to_main_database()
+        
+        # Go through all entries.
+        bar = progressbar.ProgressBar(max_value=len(image_entries))
+        for index, (artifact_id, path) in enumerate(image_entries):
+            bar.update(index)
+            
+            # Check if there is already an entry.
+            select_sql_statement = ""
+            select_sql_statement += "SELECT COUNT(*) FROM artifact_quality"
+            select_sql_statement += " WHERE artifact_id='{}'".format(artifact_id)
+            select_sql_statement += " AND type='{}'".format(db_type)
+            select_sql_statement += " AND key='{}'".format(db_key)
+            results = db_connector.execute(select_sql_statement, fetch_one=True)[0]
+            
+            # There is an entry. Skip
+            if results != 0:
+                continue
+            Pose = get_pose(path)
+            
+            # Create an SQL statement for insertion.
+            sql_statement = ""
+            sql_statement += "INSERT INTO artifact_quality (type, key, value, artifact_id, misc)"
+            sql_statement += " VALUES(\'{}\', \'{}\', \'{}\', \'{}\', \'{}\');".format(db_type, db_key, Pose, artifact_id, "")
+            # Call database.
+            result = db_connector.execute(sql_statement)
+            
+        bar.finish()
+    
+    # Run this in multiprocess mode.
+    utils.multiprocess(
+        image_entries, 
+        process_method=process_image_entries, 
+        process_individial_entries=False, 
+        progressbar=False,
+        number_of_workers=1
+    )
+    print("Done.")
+
+    
+def get_pose(image_path):
+    #try:
+    with tf.Session() as sess:
+        model_cfg, model_outputs = posenet.load_model(101, sess)
+        output_stride = model_cfg['output_stride']
+
+        start = time.time()
+        input_image, draw_image, output_scale = posenet.read_imgfile(
+            image_path, scale_factor=1, output_stride=output_stride)
+
+        heatmaps_result, offsets_result, displacement_fwd_result, displacement_bwd_result = sess.run(
+            model_outputs,
+            feed_dict={'image:0': input_image}
+        )
+
+        pose_scores, keypoint_scores, keypoint_coords = posenet.decode_multiple_poses(
+            heatmaps_result.squeeze(axis=0),
+            offsets_result.squeeze(axis=0),
+            displacement_fwd_result.squeeze(axis=0),
+            displacement_bwd_result.squeeze(axis=0),
+            output_stride=output_stride,
+            max_pose_detections=10,
+            min_pose_score=0.25)
+
+        keypoint_coords *= output_scale
+
+        
+        print()
+        print("Results for image: %s" % 'image_path')
+        count=0;
+        for pi in range(len(pose_scores)):
+            if pose_scores[pi] == 0.:
+                break
+            count=count+1
+        return count
+  #  except Exception as e:
+   ##     error = True
+   #     error_message = str(e)
+    #except ValueError as e:
+    #    print("\n", image_path, e)
+    #    error = True
+    #    error_message = str(e)
+    return None
 
 if __name__ == "__main__":
     main()
