@@ -362,7 +362,7 @@ def update_artifactsquality_with_posenet():
         process_method=process_image_entries, 
         process_individial_entries=False, 
         progressbar=False,
-        number_of_workers=1
+        number_of_workers=2
     )
     print("Done.")
 
