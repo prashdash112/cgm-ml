@@ -415,7 +415,14 @@ def get_available_gpus():
     return [x.name for x in local_device_protos if x.device_type == 'GPU']
 
 
-def multiprocess(entries, process_method, number_of_workers=None, process_individial_entries=True, progressbar=False):
+def multiprocess(
+    entries, 
+    process_method, 
+    number_of_workers=None, 
+    process_individial_entries=True, 
+    pass_process_index=False, 
+    progressbar=False
+):
     # Get number of workers.
     if number_of_workers == None:
         number_of_workers = multiprocessing.cpu_count()
@@ -428,7 +435,8 @@ def multiprocess(entries, process_method, number_of_workers=None, process_indivi
     # Define an output queue
     output = multiprocessing.Queue()
 
-    def process_entries(entry_sublist):
+    def process_entries(entry_sublist, process_index):
+        
         # Process individually.
         if process_individial_entries:
             if progressbar == True:
@@ -436,12 +444,19 @@ def multiprocess(entries, process_method, number_of_workers=None, process_indivi
             for entry_index, entry in enumerate(entry_sublist):
                 if progressbar == True:
                     bar.update(entry_index)
-                result = process_method(entry)
+                if pass_process_index == False:
+                    result = process_method(entry)
+                else:
+                    result = process_method(entry, process_index)
             if progressbar == True:
                 bar.finish()
+        
         # Process all.
         else:
-            result = process_method(entry_sublist)
+            if pass_process_index == False:
+                result = process_method(entry_sublist)
+            else:
+                result = process_method(entry_sublist, process_index)
             
         # No results returned. Just provide status string.
         if result == None:
@@ -454,8 +469,8 @@ def multiprocess(entries, process_method, number_of_workers=None, process_indivi
             output.put(pickle_path)
 
     # Setup a list of processes that we want to run
-    processes = [multiprocessing.Process(target=process_entries, args=(entry_sublist,)) for entry_sublist in entry_sublists]
-
+    processes = [multiprocessing.Process(target=process_entries, args=(entry_sublist, process_index)) for process_index, entry_sublist in enumerate(entry_sublists)]
+    
     # Run processes
     for process in processes:
         process.start()
@@ -471,7 +486,7 @@ def multiprocess(entries, process_method, number_of_workers=None, process_indivi
         
         # Results are in a pickle file.
         if result.endswith(".pickletemp"):
-            results.extend(pickle.load(open(result, "rb")))
+            results.append(pickle.load(open(result, "rb")))
             os.remove(result)
         
         # Just plain results.

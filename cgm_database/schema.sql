@@ -1,6 +1,6 @@
 -- This removes everything. You better be careful.
--- DROP SCHEMA public CASCADE;
--- CREATE SCHEMA public;
+--DROP SCHEMA public CASCADE;
+--CREATE SCHEMA public;
 
 -- Creates a table for person
 CREATE TABLE IF NOT EXISTS person (
