@@ -1,6 +1,6 @@
 -- This removes everything. You better be careful.
---DROP SCHEMA public CASCADE;
---CREATE SCHEMA public;
+DROP SCHEMA public CASCADE;
+CREATE SCHEMA public;
 
 -- Creates a table for person
 CREATE TABLE IF NOT EXISTS person (
@@ -53,6 +53,7 @@ CREATE TABLE IF NOT EXISTS artifact (
     qr_code TEXT NOT NULL,
     create_date BIGINT NOT NULL,
     created_by TEXT NOT NULL,
+    tango_timestamp REAL NOT NULL,
     status integer NOT NULL
 );
 

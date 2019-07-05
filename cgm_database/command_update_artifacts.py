@@ -30,6 +30,8 @@ def execute_command_update_artifacts(update_jpgs=False, update_pcds=True):
 
     # TODO fix this
     person_paths = [path for path in glob.glob(person_search_path) if os.path.isdir(path)]
+    
+    # TODO speedup... only for development!
     #pickle.dump(person_paths, open("temp.p", "wb"))
     #person_paths = pickle.load(open("temp.p", "rb"))
 
@@ -178,9 +180,10 @@ def get_default_values(file_path, table, db_connector):
     #assert path_split[1] == whhdata_path[1:]
     #assert path_split[2] == media_subpath
     
-    # Get QR-code and timestamp from path.
+    # Get QR-code and timestamps from path.
     qr_code = path_split[3]
     timestamp = path_split[-1].split("_")[-3]
+    tango_timestamp = path_split[-1].split("_")[-1][:-4]
     
     # Getting last updated timestamp.
     last_updated, _ = get_last_updated()
@@ -208,6 +211,7 @@ def get_default_values(file_path, table, db_connector):
     values["deleted"] = False
     values["qr_code"] = qr_code
     values["create_date"] = timestamp
+    values["tango_timestamp"] = tango_timestamp
     values["created_by"] = "UNKNOWN CREATOR" # TODO make proper
     values["status"] = 0 # TODO make proper
     
