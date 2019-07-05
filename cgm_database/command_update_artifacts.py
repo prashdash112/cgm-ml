@@ -27,16 +27,19 @@ def execute_command_update_artifacts(update_jpgs=False, update_pcds=True):
     # Get all persons.
     print("Finding all persons at '{}'...".format(config.artifacts_path))
     person_search_path = os.path.join(config.artifacts_path, "*")
-
-    # TODO fix this
     person_paths = [path for path in glob.glob(person_search_path) if os.path.isdir(path)]
     
     # TODO speedup... only for development!
     #pickle.dump(person_paths, open("temp.p", "wb"))
     #person_paths = pickle.load(open("temp.p", "rb"))
 
-    # TODO remove this
-    #person_paths = person_paths[0:10]
+    #person_paths = person_paths[0:20]
+    
+    # Deleting the table. Be careful!
+    #print("DELETING TABLE!")
+    #dbutils.connect_to_main_database().execute("DELETE FROM artifact;")
+    
+    # Statistics.
     print("Found {} persons.".format(len(person_paths)))
     
     # Decide on the file-extensions.
@@ -88,14 +91,13 @@ def execute_command_update_artifacts(update_jpgs=False, update_pcds=True):
                     # Check if there is a measure_id.
                     if "measure_id" in default_values.keys():
                         insert_count += 1
-                        #print("Measure_id found for {}".format(artifact_path))
                     else:
-                        #print("No measure_id found for {}".format(artifact_path))
                         no_measurements_count += 1
 
                     # Create SQL statement.
                     insert_data.update(default_values)
-                    sql_statement += dbutils.create_insert_statement(table, insert_data.keys(), insert_data.values())
+                    sql_statement_for_artifact = dbutils.create_insert_statement(table, insert_data.keys(), insert_data.values())
+                    sql_statement += sql_statement_for_artifact
                         
                 # Found a result. Update.
                 elif len(results) != 0:
@@ -104,8 +106,9 @@ def execute_command_update_artifacts(update_jpgs=False, update_pcds=True):
                 # Update database.
                 if artifact_index != 0 and ((artifact_index % batch_size) == 0) or artifact_index == last_index:
                     if sql_statement != "":
-                        result = main_connector.execute(sql_statement) # TODO re enable
+                        result = main_connector.execute(sql_statement) 
                         sql_statement = ""
+                       
         
         # Return statistics.
         return (insert_count, no_measurements_count, skip_count)
