@@ -1,3 +1,21 @@
+#
+# Child Growth Monitor - Free Software for Zero Hunger
+# Copyright (c) 2019 Tristan Behrens <tristan@ai-guru.de> for Welthungerhilfe
+#
+#     This program is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This program is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
@@ -17,6 +35,7 @@ import random
 from tensorflow.python.client import device_lib
 import multiprocessing
 import uuid
+from tqdm import tqdm
 
     
 def load_pcd_as_ndarray(pcd_path):
@@ -440,17 +459,11 @@ def multiprocess(
         try:
             # Process individually.
             if process_individial_entries:
-                if progressbar == True:
-                    bar = progressbar.ProgressBar(max_value=len(entry_sublist))
-                for entry_index, entry in enumerate(entry_sublist):
-                    if progressbar == True:
-                        bar.update(entry_index)
+                for entry_index, entry in enumerate(tqdm(entry_sublist, position=process_index)):
                     if pass_process_index == False:
                         result = process_method(entry)
                     else:
                         result = process_method(entry, process_index)
-                if progressbar == True:
-                    bar.finish()
 
             # Process all.
             else:
