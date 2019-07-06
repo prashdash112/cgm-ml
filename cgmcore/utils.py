@@ -437,36 +437,42 @@ def multiprocess(
 
     def process_entries(entry_sublist, process_index):
         
-        # Process individually.
-        if process_individial_entries:
-            if progressbar == True:
-                bar = progressbar.ProgressBar(max_value=len(entry_sublist))
-            for entry_index, entry in enumerate(entry_sublist):
+        try:
+            # Process individually.
+            if process_individial_entries:
                 if progressbar == True:
-                    bar.update(entry_index)
-                if pass_process_index == False:
-                    result = process_method(entry)
-                else:
-                    result = process_method(entry, process_index)
-            if progressbar == True:
-                bar.finish()
-        
-        # Process all.
-        else:
-            if pass_process_index == False:
-                result = process_method(entry_sublist)
+                    bar = progressbar.ProgressBar(max_value=len(entry_sublist))
+                for entry_index, entry in enumerate(entry_sublist):
+                    if progressbar == True:
+                        bar.update(entry_index)
+                    if pass_process_index == False:
+                        result = process_method(entry)
+                    else:
+                        result = process_method(entry, process_index)
+                if progressbar == True:
+                    bar.finish()
+
+            # Process all.
             else:
-                result = process_method(entry_sublist, process_index)
-            
-        # No results returned. Just provide status string.
-        if result == None:
-            output.put("Processed {}".format(len(entry_sublist)))
+                if pass_process_index == False:
+                    result = process_method(entry_sublist)
+                else:
+                    result = process_method(entry_sublist, process_index)
+
+            # No results returned. Just provide status string.
+            if result == None:
+                output.put("Processed {}".format(len(entry_sublist)))
+
+            # Results found. Playing it safe. Use pickle.
+            else:
+                pickle_path = str(uuid.uuid4()) + ".pickletemp"
+                pickle.dump(result, open(pickle_path, "wb"))
+                output.put(pickle_path)
         
-        # Results found. Playing it safe. Use pickle.
-        else:
-            pickle_path = str(uuid.uuid4()) + ".pickletemp"
-            pickle.dump(result, open(pickle_path, "wb"))
-            output.put(pickle_path)
+        # Handle keyboard interrupt.
+        except KeyboardInterrupt:
+            output.put("Keyboard interrupt.")
+            
 
     # Setup a list of processes that we want to run
     processes = [multiprocessing.Process(target=process_entries, args=(entry_sublist, process_index)) for process_index, entry_sublist in enumerate(entry_sublists)]
@@ -476,8 +482,15 @@ def multiprocess(
         process.start()
 
     # Exit the completed processes
-    for process in processes:
-        process.join()
+    try:
+        for process in processes:
+            process.join()
+    except KeyboardInterrupt:
+        print("Keyboard interrupt. Gracefully terminating multi-processing...")
+        for process in processes:
+            process.terminate()
+            process.join()
+        return
 
     # Get process results from the output queue.
     results = []

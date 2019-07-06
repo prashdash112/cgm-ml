@@ -1,3 +1,21 @@
+#
+# Child Growth Monitor - Free Software for Zero Hunger
+# Copyright (c) 2019 Tristan Behrens <tristan@ai-guru.de> for Welthungerhilfe
+#
+#     This program is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This program is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+    
 import warnings
 warnings.filterwarnings("ignore")
 import sys
@@ -124,6 +142,11 @@ def execute_command_update_artifacts(update_jpgs=False, update_pcds=True):
         number_of_workers=None
     )
     
+    if results == None:
+        print("\n")
+        print("No results.")
+        return
+    
     # Aggregate results
     total_insert_count = 0
     total_no_measurements_count = 0
@@ -235,102 +258,7 @@ def get_last_updated():
     last_updated = time.time()
     last_updated_readable = datetime.datetime.fromtimestamp(last_updated).strftime('%Y-%m-%d %H:%M:%S')
     return last_updated, last_updated_readable
-    
-    
-def get_pointcloud_values(path):
-    number_of_points = 0
-    confidence_min = 0.0
-    confidence_avg = 0.0
-    confidence_std = 0.0
-    confidence_max = 0.0
-    
-    centroid_x = 0.0
-    centroid_y = 0.0
-    centroid_z = 0.0
-    
-    stdev_x = 0.0
-    stdev_y = 0.0
-    stdev_z = 0.0
-    
-    error = False
-    error_message = ""
-    
-    try:
-        pointcloud = utils.load_pcd_as_ndarray(path)
-        number_of_points = len(pointcloud)
-        confidence_min = float(np.min(pointcloud[:,3]))
-        confidence_avg = float(np.mean(pointcloud[:,3]))
-        confidence_std = float(np.std(pointcloud[:,3]))
-        confidence_max = float(np.max(pointcloud[:,3]))
-        
-        centroid_x = float(np.mean(pointcloud[:,0]))
-        centroid_y = float(np.mean(pointcloud[:,1]))
-        centroid_z = float(np.mean(pointcloud[:,2]))
-        
-        stdev_x = float(np.mean(pointcloud[:,0]))
-        stdev_y = float(np.mean(pointcloud[:,1]))
-        stdev_z = float(np.mean(pointcloud[:,2]))
-        
-    except Exception as e:
-        print("\n", path, e)
-        error = True
-        error_message = str(e)
-    except ValueError as e:
-        print("\n", path, e)
-        error = True
-        error_message = str(e)
-    
-    values = {}
-    values["number_of_points"] = number_of_points
-    values["confidence_min"] = confidence_min
-    values["confidence_avg"] = confidence_avg
-    values["confidence_std"] = confidence_std
-    values["confidence_max"] = confidence_max
-    values["centroid_x"] = centroid_x
-    values["centroid_y"] = centroid_y
-    values["centroid_z"] = centroid_z
-    values["stdev_x"] = stdev_x
-    values["stdev_y"] = stdev_y
-    values["stdev_z"] = stdev_z
-    values["had_error"] = error
-    values["error_message"] = error_message
-    return values
-
-
-def get_image_values(path):
-    width = 0.0
-    height = 0.0
-    blur_variance = 0.0
-    error = False
-    error_message = ""
-    try:
-        image = cv2.imread(path)
-        width = image.shape[0]
-        height = image.shape[1]
-        blur_variance = get_blur_variance(image)
-    except Exception as e:
-        print("\n", path, e)
-        error = True
-        error_message = str(e)
-    except ValueError as e:
-        print("\n", path, e)
-        error = True
-        error_message = str(e)
-
-    values = {}
-    values["width_px"] = width
-    values["height_px"] = height
-    values["blur_variance"] = blur_variance
-    values["has_face"] = False # TODO fix
-    values["had_error"] = error
-    values["error_message"] = error_message
-    return values
-    
-    
-def get_blur_variance(image):
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    return cv2.Laplacian(image, cv2.CV_64F).var()
-
+   
 
 if __name__ == "__main__":
     
