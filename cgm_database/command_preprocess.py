@@ -67,7 +67,15 @@ def execute_command_preprocess(preprocess_pcds=True, preprocess_jpgs=False):
         
         # Get entries.
         # TODO enable filtering
-        sql_statement = "SELECT artifact_path, qr_code, height, weight FROM artifacts_with_targets WHERE type='pcd';"
+        sql_statement = ""
+        sql_statement += "SELECT artifact_path, qr_code, height, weight FROM artifacts_with_targets"
+        sql_statement += " WHERE type='pcd'"
+        sql_statement += " AND type='pcd'"
+        sql_statement += " AND height >= 60"
+        sql_statement += " AND height <= 120"
+        sql_statement += " AND weight >= 2"
+        sql_statement += " AND weight <= 20"
+        sql_statement += ";"
         main_connector = dbutils.connect_to_main_database()
         entries = main_connector.execute(sql_statement, fetch_all=True)
         print("Found {} PCDs. Processing...".format(len(entries)))
@@ -119,7 +127,7 @@ def execute_command_preprocess(preprocess_pcds=True, preprocess_jpgs=False):
         # Start multiprocessing.
         utils.multiprocess(entries, process_pcd_entry)
         
-        
+# TODO remove this soon        
 def filterpcds(
     number_of_points_threshold=10000, 
     confidence_avg_threshold=0.75,

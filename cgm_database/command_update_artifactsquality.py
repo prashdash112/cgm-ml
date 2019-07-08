@@ -190,7 +190,7 @@ def update_artifactsquality_with_pointcloud_data():
         process_individial_entries=False, 
         pass_process_index=True,
         progressbar=False,
-        number_of_workers=None
+        number_of_workers=4
     )
     print("Done.")
 

@@ -36,14 +36,16 @@ from tensorflow.python.client import device_lib
 import multiprocessing
 import uuid
 from tqdm import tqdm
+import traceback
 
     
 def load_pcd_as_ndarray(pcd_path):
     """
     Loads a PCD-file. Yields a numpy-array.
     """
-        
-    return PyntCloud.from_file(pcd_path).points.values
+    pointcloud = PyntCloud.from_file(pcd_path)
+    values = pointcloud.points.values
+    return values
 
 def subsample_pointcloud(pointcloud, target_size):
     """
@@ -485,6 +487,13 @@ def multiprocess(
         # Handle keyboard interrupt.
         except KeyboardInterrupt:
             output.put("Keyboard interrupt.")
+            
+        # TODO remove later
+        except Exception as e:
+            print("\n\n\n\n\n\n\n\n\n\n\n")
+            print(e)
+            traceback.print_exc()
+            
             
 
     # Setup a list of processes that we want to run
