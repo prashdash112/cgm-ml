@@ -442,11 +442,15 @@ def multiprocess(
     number_of_workers=None, 
     process_individial_entries=True, 
     pass_process_index=False, 
-    progressbar=False
+    progressbar=False,
+    disable_gpu=False
 ):
     # Get number of workers.
     if number_of_workers == None:
         number_of_workers = multiprocessing.cpu_count()
+    print("Using {} workers.".format(number_of_workers))
+    if disable_gpu == True:
+        print("GPU is disabled.")
 
     # Split into list.
     entry_sublists = np.array_split(entries, number_of_workers)
@@ -456,7 +460,11 @@ def multiprocess(
     # Define an output queue
     output = multiprocessing.Queue()
 
+    # This method is starting point for multiprocessing
     def process_entries(entry_sublist, process_index):
+        
+        if disable_gpu == True:
+            os.environ["CUDA_VISIBLE_DEVICES"]="-1"  
         
         try:
             # Process individually.
