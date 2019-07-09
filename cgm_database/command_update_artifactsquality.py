@@ -40,7 +40,7 @@ from tqdm import tqdm
 
 def main():
     
-    commands = ["bluriness", "pointcloud","posenet"]
+    commands = ["bluriness", "pointcloud", "model", "posenet"]
     
     if len(sys.argv) == 1 or sys.argv[1] not in commands:
         print("ERROR! Must use one of", commands)
@@ -48,13 +48,12 @@ def main():
         update_artifactsquality_with_bluriness()
     elif sys.argv[1] == "pointcloud":
         update_artifactsquality_with_pointcloud_data()
+    elif sys.argv[1] == "model":
+        update_artifactsquality_with_model()
     elif sys.argv[1] == "posenet":
         update_artifactsquality_with_posenet()
     else:
         print("ERROR!")
-   
-   
-  
   
     
 def update_artifactsquality_with_bluriness():
@@ -258,39 +257,37 @@ def get_pointcloud_values(path):
 def update_artifactsquality_with_model():
 
     # Check the arguments.
-    if len(sys.argv) != 2:
+    if len(sys.argv) != 3:
         raise Exception("ERROR! Must provide model filename.")
-    model_path = sys.argv[1]
+    model_path = sys.argv[2]
     if not os.path.exists(model_path):
         raise Exception("ERROR! \"{}\" does not exist.".format(model_path))
     if not os.path.isfile(model_path):
         raise Exception("ERROR! \"{}\" is not a file.".format(model_path))
-
+        
     # Get the training QR-codes.
     search_path = os.path.join(os.path.dirname(model_path), "*.p")
     paths = glob.glob(search_path)
     details_path = [path for path in paths if "details" in path][0]
     details = pickle.load(open(details_path, "rb"))
     qrcodes_train = details["qrcodes_train"]
+    qrcodes_validate = details["qrcodes_validate"]
+    
+    print("QR codes train:", len(qrcodes_train), "QR codes validate:", len(qrcodes_validate))
         
-    # Create database connection.
-    db_connector = dbutils.connect_to_main_database()
 
     # Query the database for artifacts.
     print("Getting all artifacts...")
+    db_connector = dbutils.connect_to_main_database()
     sql_statement = ""
-    # Select all artifacts.
-    sql_statement += "SELECT pointcloud_data.id, pointcloud_data.path, measurements.height_cms, pointcloud_data.qrcode FROM pointcloud_data"
-    # Join them with measurements.
-    sql_statement += " INNER JOIN measurements ON pointcloud_data.measurement_id=measurements.id"
-    # Only take into account manual measurements.
-    sql_statement += " WHERE measurements.type=\'manual\'"
+    sql_statement += "SELECT artifact_id, artifact_path, height, qr_code FROM artifacts_with_targets"
+    sql_statement += " WHERE type=\'pcd\'"
     artifacts = db_connector.execute(sql_statement, fetch_all=True)
     print("Found {} artifacts.".format(len(artifacts)))
 
     # Method for processing a set of artifacts.
     # Note: This method will run in its own process.
-    def process_artifacts(artifacts):
+    def process_artifacts(artifacts, process_index):
         
          # Create database connection.
         db_connector = dbutils.connect_to_main_database()
@@ -300,9 +297,7 @@ def update_artifactsquality_with_model():
         model_name = model_path.split("/")[-2]
         
         # Evaluate and create SQL-statements.
-        bar = progressbar.ProgressBar(max_value=len(artifacts))
-        for artifact_index, artifact in enumerate(artifacts):
-            bar.update(artifact_index)
+        for artifact_index, artifact in enumerate(tqdm(artifacts, position=process_index)):
 
             # Execute SQL statement.
             try:
@@ -324,13 +319,22 @@ def update_artifactsquality_with_model():
                 # Call database.
                 result = db_connector.execute(sql_statement)
             except psycopg2.IntegrityError:
-                print("Already in DB. Skipped.", pcd_path)
+                #print("Already in DB. Skipped.", pcd_path)
+                pass
             except ValueError:
-                print("Skipped.", pcd_path)
+                #print("Skipped.", pcd_path)
+                pass
         bar.finish()
 
     # Run this in multiprocess mode.
-    utils.multiprocess(artifacts, process_method=process_artifacts, process_individial_entries=False, progressbar=False)
+    utils.multiprocess(
+        artifacts, 
+        process_method=process_artifacts, 
+        process_individial_entries=False, 
+        progressbar=False,
+        pass_process_index=True,
+        disable_gpu=True
+    )
     print("Done.")
         
         
