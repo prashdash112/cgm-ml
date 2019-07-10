@@ -274,7 +274,6 @@ def update_artifactsquality_with_model():
     qrcodes_validate = details["qrcodes_validate"]
     
     print("QR codes train:", len(qrcodes_train), "QR codes validate:", len(qrcodes_validate))
-        
 
     # Query the database for artifacts.
     print("Getting all artifacts...")
@@ -282,9 +281,20 @@ def update_artifactsquality_with_model():
     sql_statement = ""
     sql_statement += "SELECT artifact_id, artifact_path, height, qr_code FROM artifacts_with_targets"
     sql_statement += " WHERE type=\'pcd\'"
+    sql_statement += ";"
     artifacts = db_connector.execute(sql_statement, fetch_all=True)
     print("Found {} artifacts.".format(len(artifacts)))
 
+#    print("Getting all artifacts...")
+#    db_connector = dbutils.connect_to_main_database()
+#    sql_statement = ""
+#    sql_statement += "SELECT awt.artifact_id, awt.artifact_path, awt.height, awt.qr_code FROM artifacts_with_targets awt"
+#    sql_statement += " LEFT JOIN artifact_quality aq ON awt.artifact_id = aq.artifact_id"
+#    sql_statement += " WHERE awt.type=\'pcd\'"
+#    sql_statement += " AND aq.type='{}'".format(model_name)
+#    artifacts = db_connector.execute(sql_statement, fetch_all=True)
+#    print("Found {} artifacts.".format(len(artifacts)))
+    
     # Method for processing a set of artifacts.
     # Note: This method will run in its own process.
     def process_artifacts(artifacts, process_index):
@@ -299,10 +309,24 @@ def update_artifactsquality_with_model():
         # Evaluate and create SQL-statements.
         for artifact_index, artifact in enumerate(tqdm(artifacts, position=process_index)):
 
+            # Unpack fields.
+            artifact_id, pcd_path, target_height, qrcode = artifact
+            
+            # Check if there is already an entry.
+            select_sql_statement = ""
+            select_sql_statement += "SELECT COUNT(*) FROM artifact_quality"
+            select_sql_statement += " WHERE artifact_id='{}'".format(artifact_id)
+            select_sql_statement += " AND type='{}'".format(model_name)
+            select_sql_statement += " AND key='{}'".format("mae")
+            results = db_connector.execute(select_sql_statement, fetch_one=True)[0]
+
+            # There is an entry. Skip
+            if results != 0:
+                continue
+            
             # Execute SQL statement.
             try:
                 # Load the artifact and evaluate.
-                artifact_id, pcd_path, target_height, qrcode = artifact
                 pcd_array = utils.load_pcd_as_ndarray(pcd_path)
                 pcd_array = utils.subsample_pointcloud(pcd_array, 10000)
                 mse, mae = model.evaluate(np.expand_dims(pcd_array, axis=0), np.array([target_height]), verbose=0)
@@ -318,13 +342,12 @@ def update_artifactsquality_with_model():
 
                 # Call database.
                 result = db_connector.execute(sql_statement)
-            except psycopg2.IntegrityError:
+            except psycopg2.IntegrityError as e:
                 #print("Already in DB. Skipped.", pcd_path)
                 pass
-            except ValueError:
+            except ValueError as e:
                 #print("Skipped.", pcd_path)
                 pass
-        bar.finish()
 
     # Run this in multiprocess mode.
     utils.multiprocess(
