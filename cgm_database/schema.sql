@@ -53,7 +53,6 @@ CREATE TABLE IF NOT EXISTS artifact (
     qr_code TEXT NOT NULL,
     create_date BIGINT NOT NULL,
     created_by TEXT NOT NULL,
-    tango_timestamp REAL NOT NULL,
     status integer NOT NULL
 );
 
@@ -63,35 +62,11 @@ CREATE TABLE IF NOT EXISTS artifact_quality (
     type TEXT NOT NULL,
     key TEXT NOT NULL,
     value REAL NOT NULL,
+    confidence_value REAL,
     misc TEXT,
     artifact_id VARCHAR(255) REFERENCES artifact(id)
 );
 
-
--- TODO to be removed and (if necessary) replaced with VIEW of person and measure
--- Creates a table for measurements.
-CREATE TABLE IF NOT EXISTS measurements (
-    id SERIAL PRIMARY KEY,
-    measurement_id TEXT NOT NULL,
-    person_id TEXT NOT NULL,
-    qrcode TEXT NOT NULL,
-    sex TEXT NOT NULL,
-    type TEXT NOT NULL,
-    age_days INTEGER NOT NULL,
-    height_cms REAL NOT NULL,
-    weight_kgs REAL NOT NULL,
-    muac_cms REAL NOT NULL,
-    head_circumference_cms REAL NOT NULL,
-    oedema BOOLEAN NOT NULL,
-    latitude REAL NOT NULL,
-    longitude REAL NOT NULL,
-    address TEXT NOT NULL,
-    timestamp DECIMAL NOT NULL,
-    deleted BOOLEAN NOT NULL,
-    deleted_by TEXT NOT NULL,
-    visible BOOLEAN NOT NULL,
-    created_by TEXT NOT NULL
-);
 
 -- Creates a view for image data.
 DROP VIEW IF EXISTS image_data;
