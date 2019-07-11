@@ -111,11 +111,11 @@ for qrcodes_task in qrcodes_tasks:
 
         input_shape = (dataset_parameters["pointcloud_target_size"], 3)
         output_size = 1
-        model = modelutils.create_point_net(input_shape, output_size, hidden_sizes = [1024, 512, 256, 128])
+        model = modelutils.create_point_net(input_shape, output_size, hidden_sizes = [512, 256, 128])
         model.summary()
 
         # Compile the model.
-        optimizer = "rmsprop"
+        optimizer = optimizers.RMSprop(lr=0.0001)
         model.compile(
                 optimizer=optimizer,
                 loss="mse",
