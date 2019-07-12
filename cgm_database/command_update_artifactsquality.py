@@ -376,7 +376,7 @@ def load_model(model_path):
 
 def update_artifactsquality_with_posenet():
     # Get all images.
-    sql_script = "SELECT id, path FROM artifact WHERE type='jpg'"
+    sql_script = "SELECT id, path FROM artifact WHERE type='rgb'"
     db_connector = dbutils.connect_to_main_database()
     image_entries = db_connector.execute(sql_script, fetch_all=True)
     print("Found {} images.".format(len(image_entries)))
