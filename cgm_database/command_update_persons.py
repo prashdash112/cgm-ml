@@ -1,3 +1,21 @@
+#
+# Child Growth Monitor - Free Software for Zero Hunger
+# Copyright (c) 2019 Tristan Behrens <tristan@ai-guru.de> for Welthungerhilfe
+#
+#     This program is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This program is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+
 import warnings
 warnings.filterwarnings("ignore")
 import dbutils
@@ -7,23 +25,15 @@ import progressbar
 import pandas as pd
 import sys
 import time
-
-
-whhdata_path = "/whhdata"
-
+import config
 
 def execute_command_persons():
     print("Updating persons...")
     
     main_connector = dbutils.connect_to_main_database()
     
-    # TODO import persons
-    
     # Where to get the data.
-    glob_search_path = os.path.join(whhdata_path, "*.csv")
-    csv_paths = sorted(glob.glob(glob_search_path))
-    csv_paths.sort(key=os.path.getmtime)
-    csv_path = csv_paths[-1]
+    csv_path = config.measure_csv_path
     print("Using {}".format(csv_path))
 
     # Load the data-frame.
@@ -32,25 +42,7 @@ def execute_command_persons():
     # List all columns.
     columns = list(df)
     print(columns)
-    
-#    ['personId', 'qrcode', 'sex', 'type', 'age', 'height', 'weight', 'muac', 'headCircumference', 'oedema', 'latitude', 'longitude', 'address', 'timestamp', 'deleted', 'deletedBy', 'visible', 'createdBy']
-    
-    """
-    id VARCHAR(255) PRIMARY KEY,
-    name TEXT NOT NULL,
-    surname TEXT NOT NULL,
-    birthday BIGINT NOT NULL,
-    sex TEXT NOT NULL,
-    guardian TEXT NOT NULL,
-    is_age_estimated BOOLEAN NOT NULL,
-    qr_code TEXT NOT NULL,
-    created BIGINT NOT NULL,
-    timestamp BIGINT NOT NULL,
-    created_by TEXT NOT NULL,
-    deleted BOOLEAN NOT NULL,
-    deleted_by TEXT NOT NULL
-    """
-    
+        
     table = "person"
 
     # Number of rows before.

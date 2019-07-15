@@ -1,3 +1,21 @@
+#
+# Child Growth Monitor - Free Software for Zero Hunger
+# Copyright (c) 2019 Tristan Behrens <tristan@ai-guru.de> for Welthungerhilfe
+#
+#     This program is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This program is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+    
 import warnings
 warnings.filterwarnings("ignore")
 import sys
@@ -11,93 +29,150 @@ import datetime
 import cv2
 from cgmcore import utils
 import hashlib
+import config
+from tqdm import tqdm
+import pickle
 
-whhdata_path = "/whhdata"
-media_subpath = "person"
 
-def execute_command_updatemedia(update_jpgs=False, update_pcds=True):
-    print("Updating media...")
+extension_to_type = {
+    "pcd" : "pcd",
+    "jpg" : "rgb"
+}
 
-    # Getting all files.
-    print("Searching artifacts...")
+
+def execute_command_update_artifacts(update_jpgs=False, update_pcds=True):
+
+    # Get all persons.
+    print("Finding all persons at '{}'...".format(config.artifacts_path))
+    person_search_path = os.path.join(config.artifacts_path, "*")
+    person_paths = [path for path in glob.glob(person_search_path) if os.path.isdir(path)]
+    
+    # TODO speedup... only for development!
+    #pickle.dump(person_paths, open("temp.p", "wb"))
+    #person_paths = pickle.load(open("temp.p", "rb"))
+
+    #person_paths = person_paths[0:20]
+    
+    # Deleting the table. Be careful!
+    #print("DELETING TABLE!")
+    #dbutils.connect_to_main_database().execute("DELETE FROM artifact;")
+    
+    # Statistics.
+    print("Found {} persons.".format(len(person_paths)))
+    
+    # Decide on the file-extensions.
     file_extensions = []
     if update_jpgs == True:
         file_extensions.append("jpg")
     if update_pcds == True:
         file_extensions.append("pcd")
-    artifact_paths = get_artifact_paths(file_extensions)
-    print("Found {} artifacts.".format(len(artifact_paths)))
     
-    # Method for multiprocessing.
-    def process_artifact_paths(artifact_paths):
-        main_connector = dbutils.connect_to_main_database()
-        table = "artifact"
+    # This method is executed in multi-processing mode.
+    def process_person_paths(person_paths, process_index):
         
-        batch_size = 100
+        #person_paths = person_paths[0:4] # TODO remove this!
         
-        insert_count = 0
-        no_measurements_count = 0
-        skip_count = 0
-        bar = progressbar.ProgressBar(max_value=len(artifact_paths))
-        sql_statement = ""
-        last_index = len(artifact_paths) - 1
-        for index, artifact_path in enumerate(artifact_paths):
-            bar.update(index)
+        # Go through each person (qr-code).
+        for person_path in tqdm(person_paths, position=process_index):
+            
+            # Find all artifacts for that person.
+            artifact_paths = []
+            for file_extension in file_extensions:
+                glob_search_path = os.path.join(person_path, "**/*.{}".format(file_extension))
+                artifact_paths.extend(glob.glob(glob_search_path))
+            #print("Found {} artifacts in {}".format(len(artifact_paths), person_path)) 
+        
+            # Process those artifacts.
+            main_connector = dbutils.connect_to_main_database()
+            table = "artifact"
+            batch_size = 100
+            insert_count = 0
+            no_measurements_count = 0
+            skip_count = 0
+            sql_statement = ""
+            last_index = len(artifact_paths) - 1
+            for artifact_index, artifact_path in enumerate(artifact_paths):
+                
+                # Check if there is already an entry in the database.
+                basename = os.path.basename(artifact_path)
+                sql_statement_select = dbutils.create_select_statement("artifact", ["id"], [basename]) 
+                results = main_connector.execute(sql_statement_select, fetch_all=True)
 
-            # Check if there is already an entry.
-            basename = os.path.basename(artifact_path)
-            sql_statement_select = dbutils.create_select_statement("artifact", ["id"], [basename]) # TODO is this the proper id?
-            results = main_connector.execute(sql_statement_select, fetch_all=True)
+                # No results found. Insert.
+                if len(results) == 0:
+                    insert_data = {}
+                    insert_data["id"] = basename # TODO proper?
 
-            # No results found. Insert.
-            if len(results) == 0:
-                insert_data = {}
-                insert_data["id"] = basename # TODO proper?
+                    # Get the default values for the artifact.
+                    default_values = get_default_values(artifact_path, table, main_connector)
+                    
+                    # Check if there is a measure_id.
+                    if "measure_id" in default_values.keys():
+                        insert_count += 1
+                    else:
+                        no_measurements_count += 1
 
-                # Process the artifact.
-                default_values = get_default_values(artifact_path, table, main_connector)
-                if default_values != None:
+                    # Create SQL statement.
                     insert_data.update(default_values)
-                    sql_statement += dbutils.create_insert_statement(table, insert_data.keys(), insert_data.values())
-                    insert_count += 1
-                else:
-                    no_measurements_count += 1
+                    sql_statement_for_artifact = dbutils.create_insert_statement(table, insert_data.keys(), insert_data.values())
+                    sql_statement += sql_statement_for_artifact
+                        
+                # Found a result. Update.
+                elif len(results) != 0:
+                    skip_count += 1
 
-            # Found a result. Update.
-            elif len(results) != 0:
-                skip_count += 1
-
-            # Update database.
-            if index != 0 and ((index % batch_size) == 0) or index == last_index:
-                if sql_statement != "":
-                    result = main_connector.execute(sql_statement)
-                    sql_statement = ""
-
-        bar.finish()
-        print("Inserted {} new entries.".format(insert_count))
-        print("No measurements for {} entries.".format(no_measurements_count))
-        print("Skipped {} entries.".format(skip_count))
+                # Update database.
+                if artifact_index != 0 and ((artifact_index % batch_size) == 0) or artifact_index == last_index:
+                    if sql_statement != "":
+                        result = main_connector.execute(sql_statement) 
+                        sql_statement = ""
+                       
+        
+        # Return statistics.
+        return (insert_count, no_measurements_count, skip_count)
+        
     
     # Start multiprocessing.
-    utils.multiprocess(
-        artifact_paths, 
-        process_method=process_artifact_paths, 
+    results = utils.multiprocess(
+        person_paths, 
+        process_method=process_person_paths, 
         process_individial_entries=False, 
+        pass_process_index=True,
         progressbar=False, 
-        number_of_workers=1
+        number_of_workers=None
     )
+    
+    if results == None:
+        print("\n")
+        print("No results.")
+        return
+    
+    # Aggregate results
+    total_insert_count = 0
+    total_no_measurements_count = 0
+    total_skip_count = 0
+    for (insert_count, no_measurements_count, skip_count) in results: 
+        total_insert_count += insert_count
+        total_no_measurements_count += no_measurements_count
+        total_skip_count += skip_count
+    
+    print("\n")
+    print("Inserted {} new entries.".format(total_insert_count))
+    print("No measurements for {} entries.".format(total_no_measurements_count))
+    print("Skipped {} entries.".format(total_skip_count))
     
     
 def get_artifact_paths(file_extensions):
     
     # Get all persons.
-    person_search_path = os.path.join(whhdata_path, media_subpath, "*")
+    person_search_path = os.path.join(config.artifacts_path, "*")
     person_paths = [path for path in glob.glob(person_search_path) if os.path.isdir(path)]
+    print("Found {} persons.".format(len(person_paths)))
     
     # Method for multiprocessing.
-    def process_person_paths(person_paths):
+    def process_person_paths(person_paths, process_index):
         artifact_paths_per_process = []
-        for person_path in person_paths:
+        for person_path in tqdm(person_paths, position=process_index):
             for file_extension in file_extensions:
                 glob_search_path = os.path.join(person_path, "**/*.{}".format(file_extension))
                 artifact_paths_per_process.extend(glob.glob(glob_search_path))
@@ -109,6 +184,7 @@ def get_artifact_paths(file_extensions):
         process_method=process_person_paths, 
         process_individial_entries=False, 
         progressbar=False, 
+        pass_process_index=True,
         number_of_workers=None
     )
     return artifact_paths
@@ -127,12 +203,13 @@ def get_default_values(file_path, table, db_connector):
      
     # Split and check the path.
     path_split = file_path.split("/")
-    assert path_split[1] == whhdata_path[1:]
-    assert path_split[2] == media_subpath
+    #assert path_split[1] == whhdata_path[1:]
+    #assert path_split[2] == media_subpath
     
-    # Get QR-code and timestamp from path.
+    # Get QR-code and timestamps from path.
     qr_code = path_split[3]
     timestamp = path_split[-1].split("_")[-3]
+    tango_timestamp = path_split[-1].split("_")[-1][:-4]
     
     # Getting last updated timestamp.
     last_updated, _ = get_last_updated()
@@ -150,22 +227,26 @@ def get_default_values(file_path, table, db_connector):
     results = db_connector.execute(sql_statement, fetch_all=True)
     
     # Prepare values.
+    file_extension = file_path.split(".")[-1]
     values = {}
-    values["type"] = file_path.split(".")[-1] # TODO proper?
+    values["type"] = extension_to_type[file_extension]
     values["path"] = file_path
     values["hash_value"] = md5(file_path)
     values["file_size"] = os.path.getsize(file_path)
     values["upload_date"] = 0 # TODO make proper
     values["deleted"] = False
     values["qr_code"] = qr_code
-    values["create_date"] = 0  # TODO make proper
+    values["create_date"] = timestamp
+    values["tango_timestamp"] = tango_timestamp
     values["created_by"] = "UNKNOWN CREATOR" # TODO make proper
     values["status"] = 0 # TODO make proper
     
     # Measurement id not found.
     if len(results) == 0:
-        print("No measurement_id found for {}".format(file_path))
-        
+        #print("No measure_id found for {}".format(file_path))
+        #values["measure_id"] = None
+        pass
+    
     # Found a measurement id.
     else:
         values["measure_id"] = results[0][0]
@@ -177,102 +258,7 @@ def get_last_updated():
     last_updated = time.time()
     last_updated_readable = datetime.datetime.fromtimestamp(last_updated).strftime('%Y-%m-%d %H:%M:%S')
     return last_updated, last_updated_readable
-    
-    
-def get_pointcloud_values(path):
-    number_of_points = 0
-    confidence_min = 0.0
-    confidence_avg = 0.0
-    confidence_std = 0.0
-    confidence_max = 0.0
-    
-    centroid_x = 0.0
-    centroid_y = 0.0
-    centroid_z = 0.0
-    
-    stdev_x = 0.0
-    stdev_y = 0.0
-    stdev_z = 0.0
-    
-    error = False
-    error_message = ""
-    
-    try:
-        pointcloud = utils.load_pcd_as_ndarray(path)
-        number_of_points = len(pointcloud)
-        confidence_min = float(np.min(pointcloud[:,3]))
-        confidence_avg = float(np.mean(pointcloud[:,3]))
-        confidence_std = float(np.std(pointcloud[:,3]))
-        confidence_max = float(np.max(pointcloud[:,3]))
-        
-        centroid_x = float(np.mean(pointcloud[:,0]))
-        centroid_y = float(np.mean(pointcloud[:,1]))
-        centroid_z = float(np.mean(pointcloud[:,2]))
-        
-        stdev_x = float(np.mean(pointcloud[:,0]))
-        stdev_y = float(np.mean(pointcloud[:,1]))
-        stdev_z = float(np.mean(pointcloud[:,2]))
-        
-    except Exception as e:
-        print("\n", path, e)
-        error = True
-        error_message = str(e)
-    except ValueError as e:
-        print("\n", path, e)
-        error = True
-        error_message = str(e)
-    
-    values = {}
-    values["number_of_points"] = number_of_points
-    values["confidence_min"] = confidence_min
-    values["confidence_avg"] = confidence_avg
-    values["confidence_std"] = confidence_std
-    values["confidence_max"] = confidence_max
-    values["centroid_x"] = centroid_x
-    values["centroid_y"] = centroid_y
-    values["centroid_z"] = centroid_z
-    values["stdev_x"] = stdev_x
-    values["stdev_y"] = stdev_y
-    values["stdev_z"] = stdev_z
-    values["had_error"] = error
-    values["error_message"] = error_message
-    return values
-
-
-def get_image_values(path):
-    width = 0.0
-    height = 0.0
-    blur_variance = 0.0
-    error = False
-    error_message = ""
-    try:
-        image = cv2.imread(path)
-        width = image.shape[0]
-        height = image.shape[1]
-        blur_variance = get_blur_variance(image)
-    except Exception as e:
-        print("\n", path, e)
-        error = True
-        error_message = str(e)
-    except ValueError as e:
-        print("\n", path, e)
-        error = True
-        error_message = str(e)
-
-    values = {}
-    values["width_px"] = width
-    values["height_px"] = height
-    values["blur_variance"] = blur_variance
-    values["has_face"] = False # TODO fix
-    values["had_error"] = error
-    values["error_message"] = error_message
-    return values
-    
-    
-def get_blur_variance(image):
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    return cv2.Laplacian(image, cv2.CV_64F).var()
-
+   
 
 if __name__ == "__main__":
     
@@ -289,12 +275,12 @@ if __name__ == "__main__":
         print("Updating pointclouds only...")
         update_pcds = True
     elif sys.argv[1] == "all":
-        print("Updating all...")
+        print("Updating all artifacts...")
         update_jpgs = True
         update_pcds = True
     
     # Run the thing.
-    execute_command_updatemedia(update_jpgs, update_pcds)
+    execute_command_update_artifacts(update_jpgs, update_pcds)
                         
                         
                         

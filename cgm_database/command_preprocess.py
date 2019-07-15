@@ -1,3 +1,21 @@
+#
+# Child Growth Monitor - Free Software for Zero Hunger
+# Copyright (c) 2019 Tristan Behrens <tristan@ai-guru.de> for Welthungerhilfe
+#
+#     This program is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This program is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+
 import warnings
 warnings.filterwarnings("ignore")
 import dbutils
@@ -8,68 +26,77 @@ from cgmcore import utils
 import numpy as np
 import datetime
 import pickle
+import config
 
-
-preprocessed_root_path = "/whhdata/preprocessed"
-
-main_connector = dbutils.connect_to_main_database()
 
 def execute_command_preprocess(preprocess_pcds=True, preprocess_jpgs=False):
     print("Preprocessing data-set...")
     
+    print("Using '{}'".format(config.preprocessed_root_path))
+    if os.path.exists(config.preprocessed_root_path) == False:
+        print("Folder does not exists. Creating...")
+        os.mkdir(config.preprocessed_root_path)
+    
     # Create the base-folder.
-    #datetime_path = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
-    #base_path = os.path.join(preprocessed_root_path, datetime_path)
-    #os.mkdir(base_path)
-    #if preprocess_pcds == True:
-    #    os.mkdir(os.path.join(base_path, "pcd"))
-    #if preprocess_jpgs == True:
-    #    os.mkdir(os.path.join(base_path, "jpg"))
-    #print("Writing preprocessed data to {}...".format(base_path))
+    datetime_path = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
+    base_path = os.path.join(config.preprocessed_root_path, datetime_path)
+    os.mkdir(base_path)
+    if preprocess_pcds == True:
+        os.mkdir(os.path.join(base_path, "pcd"))
+    if preprocess_jpgs == True:
+        os.mkdir(os.path.join(base_path, "jpg"))
+    print("Writing preprocessed data to {}...".format(base_path))
     
     # Process the filtered PCDs.
     if preprocess_pcds == True:
+        
         # Filter parameters.
-        number_of_points_threshold=10000
-        confidence_avg_threshold=0.75
-        remove_unreasonable=True
-        remove_errors=True
-        remove_rejects=True 
-        
+        #number_of_points_threshold=10000
+        #confidence_avg_threshold=0.75
+        #remove_unreasonable=True
+        #remove_errors=True
+        #remove_rejects=True 
         # Save filter parameters.
-        filter_parameters_path = os.path.join(base_path, "filter_parameters.txt")
-        with open(filter_parameters_path, "w") as filter_parameters_file:
-            filter_parameters_file.write("number_of_points_threshold" + "," + str(number_of_points_threshold) + "\n")
-            filter_parameters_file.write("confidence_avg_threshold" + "," + str(confidence_avg_threshold) + "\n")
-            filter_parameters_file.write("remove_unreasonable" + "," + str(remove_unreasonable) + "\n")
-            filter_parameters_file.write("remove_errors" + "," + str(remove_errors) + "\n")
-            filter_parameters_file.write("remove_rejects" + "," + str(remove_rejects) + "\n")
+        #filter_parameters_path = os.path.join(base_path, "filter_parameters.txt")
+        #with open(filter_parameters_path, "w") as filter_parameters_file:
+        #    filter_parameters_file.write("number_of_points_threshold" + "," + str(number_of_points_threshold) + "\n")
+        #    filter_parameters_file.write("confidence_avg_threshold" + "," + str(confidence_avg_threshold) + "\n")
+        #    filter_parameters_file.write("remove_unreasonable" + "," + str(remove_unreasonable) + "\n")
+        #    filter_parameters_file.write("remove_errors" + "," + str(remove_errors) + "\n")
+        #    filter_parameters_file.write("remove_rejects" + "," + str(remove_rejects) + "\n")
         
-        # Get filtered entries.
-        entries = filterpcds(
-            number_of_points_threshold=number_of_points_threshold,
-            confidence_avg_threshold=confidence_avg_threshold,
-            remove_unreasonable=remove_unreasonable,
-            remove_errors=remove_errors,
-            remove_rejects=remove_rejects
-        )["results"]
+        # Get entries.
+        # TODO enable filtering
+        sql_statement = ""
+        sql_statement += "SELECT artifact_path, qr_code, height, weight FROM artifacts_with_targets"
+        sql_statement += " WHERE type='pcd'"
+        sql_statement += " AND type='pcd'"
+        sql_statement += " AND height >= 60"
+        sql_statement += " AND height <= 120"
+        sql_statement += " AND weight >= 2"
+        sql_statement += " AND weight <= 20"
+        sql_statement += ";"
+        main_connector = dbutils.connect_to_main_database()
+        entries = main_connector.execute(sql_statement, fetch_all=True)
         print("Found {} PCDs. Processing...".format(len(entries)))
         
         # Method for processing a single entry.
         def process_pcd_entry(entry):
-            path = entry["artifact_path"]
+            path, qr_code, height, weight = entry
             if os.path.exists(path) == False:
                 print("\n", "File {} does not exist!".format(path), "\n")
                 return
-            pointcloud = utils.load_pcd_as_ndarray(path)
-            targets = np.array([entry["height"], entry["weight"]])
-            qrcode = entry["qr_code"]
-            pickle_filename = os.path.basename(entry["artifact_path"]).replace(".pcd", ".p")
-            qrcode_path = os.path.join(base_path, "pcd", qrcode)
-            if os.path.exists(qrcode_path) == False:
-                os.mkdir(qrcode_path)
-            pickle_output_path = os.path.join(qrcode_path, pickle_filename)
-            pickle.dump((pointcloud, targets), open(pickle_output_path, "wb"))
+            try:
+                pointcloud = utils.load_pcd_as_ndarray(path)
+                targets = np.array([height, weight])
+                pickle_filename = os.path.basename(path).replace(".pcd", ".p")
+                qrcode_path = os.path.join(base_path, "pcd", qr_code)
+                if os.path.exists(qrcode_path) == False:
+                    os.mkdir(qrcode_path)
+                pickle_output_path = os.path.join(qrcode_path, pickle_filename)
+                pickle.dump((pointcloud, targets), open(pickle_output_path, "wb"))
+            except:
+                pass
         
         # Start multiprocessing.
         utils.multiprocess(entries, process_pcd_entry)
@@ -100,7 +127,7 @@ def execute_command_preprocess(preprocess_pcds=True, preprocess_jpgs=False):
         # Start multiprocessing.
         utils.multiprocess(entries, process_pcd_entry)
         
-        
+# TODO remove this soon        
 def filterpcds(
     number_of_points_threshold=10000, 
     confidence_avg_threshold=0.75,
