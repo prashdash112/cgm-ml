@@ -12,15 +12,6 @@ from cgm_fusion.utility import write_color_ply, fuse_point_cloud
 from pyntcloud import PyntCloud
 
 
-# def find_corresponding_point_cloud:
-
-
-# def find_corresponding_image:
-
-
-
-
-
 def apply_fusion(calibration_file, pcd_file, jpg_file):
 
     # check all files exist
@@ -38,37 +29,47 @@ def apply_fusion(calibration_file, pcd_file, jpg_file):
 
 
     # load the data from the files
-    cloud      = PyntCloud.from_file(pcd_file)  
-    jpg        = cv2.imread(jpg_file, -1)
+    try:
+        cloud      = PyntCloud.from_file(pcd_file)  
+    except ValueError:
+        print (" Error reading point cloud ")
+        raise
+        return
 
+
+    jpg        = cv2.imread(jpg_file, -1)
+    jpg = cv2.flip( jpg, 0 )
     hh, ww, _  = jpg.shape
 
     points     = cloud.points.values[:, :3]
+    confidence = cloud.points.values[:, 3]
 
+   # print (points[0])
+   # print (confidence[0])
 
     # get the data for calibration
     intrinsic  = get_intrinsic_matrix()
     ext_d      = get_extrinsic_matrix(4)
-    ext_rgb    = get_extrinsic_matrix(3)
-    diff       = ext_rgb @ np.linalg.inv(ext_d)
+    #ext_rgb    = get_extrinsic_matrix(3)
+    #diff       = ext_rgb @ np.linalg.inv(ext_d)
 
 
-    Hpoints    = np.concatenate([points, np.ones((points.shape[0], 1), dtype=points.dtype)], axis=1)
-    Hpoints    = np.transpose(diff @ Hpoints.T)
+    # Hpoints    = np.concatenate([points, np.ones((points.shape[0], 1), dtype=points.dtype)], axis=1)
+    # Hpoints    = np.transpose(diff @ Hpoints.T)
 
-    im_coords  = np.transpose(intrinsic @ Hpoints.T)
-    color_vals = np.zeros_like(points)
+    # im_coords  = np.transpose(intrinsic @ Hpoints.T)
+    # color_vals = np.zeros_like(points)
 
-    for i, t in enumerate(im_coords):
-        x, y, _ = t
-        x = int(np.round(x))
-        y = int(np.round(y))
-        if x >= 0 and x < ww and y >= 0 and y < hh:
-            color_vals[i, :] = jpg[y, x]
+    # for i, t in enumerate(im_coords):
+    #     x, y, _ = t
+    #     x = int(np.round(x))
+    #     y = int(np.round(y))
+    #     if x >= 0 and x < ww and y >= 0 and y < hh:
+    #         color_vals[i, :] = jpg[y, x]
 
-    fused_point_cloud = fuse_point_cloud(points,color_vals)     
+    # fused_point_cloud = fuse_point_cloud(points,color_vals)     
             
-    write_color_ply('color_pc.ply', points, color_vals)
+    # write_color_ply('/tmp/color_pc.ply', points, color_vals)
     # return  fused_point_cloud
 
 
@@ -89,9 +90,9 @@ def apply_fusion(calibration_file, pcd_file, jpg_file):
         if x >= 0 and x < ww and y >= 0 and y < hh:
             color_vals[i, :] = jpg[y, x]
 
-    write_color_ply('color_pc_cv2.ply', points, color_vals)
+    #write_color_ply('/tmp/color_pc_cv2.ply', points, color_vals, confidence)
 
-    fused_point_cloud = fuse_point_cloud(points, color_vals)
+    fused_point_cloud = fuse_point_cloud(points, color_vals, confidence)
 
     return  fused_point_cloud
 
