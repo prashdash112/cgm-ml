@@ -24,6 +24,8 @@ from numpy import size
 import dbutils
 import progressbar #@todo remove this
 import logging
+from tqdm import tqdm
+
 
 #import the neccessary packages for the sensor fusion
 import cgm_fusion.utility
@@ -82,7 +84,13 @@ def get_timestamp_from_pcd(pcd_path):
     import re
     timestamp = re.findall("\d+\.\d+", firstLine)
 
-    return float(timestamp[0])  # index error? IndexError
+    # check if a timestamp is parsed from the header of the pcd file
+    try: 
+        return_timestamp = float(timestamp[0])
+    except IndexError:
+        return_timestamp = []
+
+    return return_timestamp  # index error? IndexError
 
 
 
@@ -137,21 +145,18 @@ def find_closest(A, target):
 
 
 
-def update_qrs(unique_qr_codes):
+def update_qrs(unique_qr_codes, process_index):
     # initialize the rrogress bar with the maxium number of unique qr codes
-    bar = progressbar.ProgressBar(max_value=len(unique_qr_codes))
+    #bar = progressbar.ProgressBar(max_value=len(unique_qr_codes))
     qr_counter = 0
 
-    for qr in unique_qr_codes:
+    for qr in tqdm(unique_qr_codes,position=process_index):
 
         # update the qr code counter in every loop
-        bar.update(qr_counter)
+        # bar.update(qr_counter)
         qr_counter = qr_counter + 1
 
         logging.error(qr_counter)
-
-        if(qr_counter < 688):
-            continue
 
         logging.error(qr)
 
@@ -197,14 +202,14 @@ def update_qrs(unique_qr_codes):
 
             cali_file = '/whhdata/calibration.xml'
             # the poin
-            t cloud is fused and additionally the cloud is saved as ply in the same folder
+            # cloud is fused and additionally the cloud is saved as ply in the same folder
             try: 
                 fused_cloud = apply_fusion(cali_file, pcd_file, jpg_file)
             except: 
                 print ("Something went wrong. ")
                 continue
-            # now save the new dat
-            a to the folder
+
+            # now save the new data to the folder
             fused_folder, pc_filename = os.path.split(str(pcd_file))
 
             pcd_path_old = pcd_file
@@ -213,14 +218,18 @@ def update_qrs(unique_qr_codes):
             pc_filename = pcd_path_old.replace(".pcd", ".ply")
             pc_filename = pc_filename.replace("pc_",   "pcrgb_");
 
+            # write the data to the new storage
+            pc_filename = pc_filename.replace("/whhdata/qrcode/", "/localssd/qrcode/")
+
             logging.info("writing new fused data to: " + pc_filename)
-            # print ("timing: " + str(start - timer()))
+            
+            
             try: 
                 fused_cloud.to_file(pc_filename)
             except AttributeError :
                 print (" skipping this file to save ") 
                 continue
-    bar.finish()
+    #bar.finish()
 
 
 
@@ -242,7 +251,12 @@ def main():
     #update_qrs(unique_qr_codes)
     
     # Run this in multiprocess mode.
-    utils.multiprocess(unique_qr_codes, process_method=update_qrs, process_individial_entries=False, progressbar=False)
+    utils.multiprocess(unique_qr_codes, 
+        process_method=update_qrs, 
+        process_individial_entries=False, 
+        pass_process_index=True, 
+        progressbar=False)
+    
     print("Done.")
 
 
