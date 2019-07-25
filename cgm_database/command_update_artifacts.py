@@ -36,11 +36,12 @@ import pickle
 
 extension_to_type = {
     "pcd" : "pcd",
-    "jpg" : "rgb"
+    "jpg" : "rgb",
+    "ply" : "pcrgb"
 }
 
 
-def execute_command_update_artifacts(update_jpgs=False, update_pcds=True):
+def execute_command_update_artifacts(update_jpgs=False, update_pcds=False, update_pcrgb=True):
 
     # Get all persons.
     print("Finding all persons at '{}'...".format(config.artifacts_path))
@@ -66,6 +67,8 @@ def execute_command_update_artifacts(update_jpgs=False, update_pcds=True):
         file_extensions.append("jpg")
     if update_pcds == True:
         file_extensions.append("pcd")
+    if update_pcrgb == True: 
+        file_extensions.append("ply")
     
     # This method is executed in multi-processing mode.
     def process_person_paths(person_paths, process_index):
@@ -77,9 +80,14 @@ def execute_command_update_artifacts(update_jpgs=False, update_pcds=True):
             
             # Find all artifacts for that person.
             artifact_paths = []
+            #print (file_extensions)
             for file_extension in file_extensions:
+                #print(file_extension)
                 glob_search_path = os.path.join(person_path, "**/*.{}".format(file_extension))
+                #print (glob_search_path)
                 artifact_paths.extend(glob.glob(glob_search_path))
+
+            
             #print("Found {} artifacts in {}".format(len(artifact_paths), person_path)) 
         
             # Process those artifacts.
@@ -163,7 +171,7 @@ def execute_command_update_artifacts(update_jpgs=False, update_pcds=True):
     
     
 def get_artifact_paths(file_extensions):
-    
+    config.art
     # Get all persons.
     person_search_path = os.path.join(config.artifacts_path, "*")
     person_paths = [path for path in glob.glob(person_search_path) if os.path.isdir(path)]
@@ -263,24 +271,29 @@ def get_last_updated():
 if __name__ == "__main__":
     
     if len(sys.argv) != 2:
-        raise Exception("ERROR! Must specify what to update. [images|pointclouds|all]")
+        raise Exception("ERROR! Must specify what to update. [images|pointclouds|fusion|all]")
 
     # Parse command line arguments.
     update_jpgs = False
     update_pcds = False
+    update_pcrgb = False
     if sys.argv[1] == "images":
         print("Updating images only...")
         update_jpgs = True
     elif sys.argv[1] == "pointclouds":
         print("Updating pointclouds only...")
         update_pcds = True
+    elif sys.argv[1] == "fusion": 
+        print("Updateing pcrgb only...")
+        update_pcrgb = True
     elif sys.argv[1] == "all":
         print("Updating all artifacts...")
         update_jpgs = True
         update_pcds = True
+        update_pcrgb = True
     
     # Run the thing.
-    execute_command_update_artifacts(update_jpgs, update_pcds)
+    execute_command_update_artifacts(update_jpgs, update_pcds, update_pcrgb)
                         
                         
                         
