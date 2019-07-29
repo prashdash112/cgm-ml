@@ -381,6 +381,10 @@ def update_artifactsquality_with_posenet():
     image_entries = db_connector.execute(sql_script, fetch_all=True)
     print("Found {} images.".format(len(image_entries)))
     
+    with tf.Session() as sess:
+        model_cfg, model_outputs = posenet.load_model(101, sess)
+        output_stride = model_cfg['output_stride']
+        
     db_type = "rgb"
     db_key = "No of People"
     
@@ -403,7 +407,7 @@ def update_artifactsquality_with_posenet():
             # There is an entry. Skip
             if results != 0:
                 continue
-            Pose = get_pose(path)
+            Pose = get_pose(path,output_stride,model_outputs)
             
             # Create an SQL statement for insertion.
             sql_statement = ""
@@ -420,46 +424,43 @@ def update_artifactsquality_with_posenet():
         process_method=process_image_entries, 
         process_individial_entries=False, 
         progressbar=False,
-        number_of_workers=1
+        number_of_workers=2
     )
     print("Done.")
 
     
-def get_pose(image_path):
+def get_pose(image_path,output_stride,model_outputs):
     #try:
-    with tf.Session() as sess:
-        model_cfg, model_outputs = posenet.load_model(101, sess)
-        output_stride = model_cfg['output_stride']
 
-        start = time.time()
-        input_image, draw_image, output_scale = posenet.read_imgfile(
-            image_path, scale_factor=1, output_stride=output_stride)
+    start = time.time()
+    input_image, draw_image, output_scale = posenet.read_imgfile(
+        image_path, scale_factor=1, output_stride=output_stride)
 
-        heatmaps_result, offsets_result, displacement_fwd_result, displacement_bwd_result = sess.run(
-            model_outputs,
-            feed_dict={'image:0': input_image}
-        )
+    heatmaps_result, offsets_result, displacement_fwd_result, displacement_bwd_result = sess.run(
+        model_outputs,
+        feed_dict={'image:0': input_image}
+    )
 
-        pose_scores, keypoint_scores, keypoint_coords = posenet.decode_multiple_poses(
-            heatmaps_result.squeeze(axis=0),
-            offsets_result.squeeze(axis=0),
-            displacement_fwd_result.squeeze(axis=0),
-            displacement_bwd_result.squeeze(axis=0),
-            output_stride=output_stride,
-            max_pose_detections=10,
-            min_pose_score=0.25)
+    pose_scores, keypoint_scores, keypoint_coords = posenet.decode_multiple_poses(
+        heatmaps_result.squeeze(axis=0),
+        offsets_result.squeeze(axis=0),
+        displacement_fwd_result.squeeze(axis=0),
+        displacement_bwd_result.squeeze(axis=0),
+        output_stride=output_stride,
+        max_pose_detections=10,
+        min_pose_score=0.25)
 
-        keypoint_coords *= output_scale
+    keypoint_coords *= output_scale
 
-        
-        print()
-        print("Results for image: %s" % 'image_path')
-        count=0;
-        for pi in range(len(pose_scores)):
-            if pose_scores[pi] == 0.:
-                break
-            count=count+1
-        return count
+
+    print()
+    print("Results for image: %s" % 'image_path')
+    count=0;
+    for pi in range(len(pose_scores)):
+        if pose_scores[pi] == 0.:
+            break
+        count=count+1
+    return count
   #  except Exception as e:
    ##     error = True
    #     error_message = str(e)
@@ -467,7 +468,6 @@ def get_pose(image_path):
     #    print("\n", image_path, e)
     #    error = True
     #    error_message = str(e)
-    return None
 
 if __name__ == "__main__":
     main()
