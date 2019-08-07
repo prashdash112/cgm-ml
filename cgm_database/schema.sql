@@ -67,6 +67,17 @@ CREATE TABLE IF NOT EXISTS artifact_quality (
     artifact_id VARCHAR(255) REFERENCES artifact(id)
 );
 
+-- Creates a table for storing measure quality assessments.
+CREATE TABLE IF NOT EXISTS measure_quality (
+    PRIMARY KEY(measure_id, type, key),
+    type TEXT NOT NULL,
+    key TEXT NOT NULL,
+    real_value REAL,
+    bool_value BOOLEAN,
+    text_value TEXT,
+    created_by TEXT NOT NULL,
+    measure_id VARCHAR(255) REFERENCES measure(id)
+);
 
 -- Creates a view for image data.
 DROP VIEW IF EXISTS image_data;
@@ -155,8 +166,15 @@ SELECT
     measure.height AS height,
     measure.weight AS weight,
     measure.muac AS muac,
-    measure.head_circumference AS head_circumference
+    measure.head_circumference AS head_circumference,
+    measure_quality.text_value AS status
     FROM artifact
     INNER JOIN measure ON artifact.measure_id=measure.id
     INNER JOIN person ON measure.person_id=person.id
+    INNER JOIN measure_quality ON measure_quality.measure_id=measure.id
+    WHERE measure.height >= 60
+    AND measure.height <= 120
+    AND measure.weight >= 2
+    AND measure.weight <= 20
+    AND measure_quality.key='expert_status'
     ;

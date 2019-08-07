@@ -29,7 +29,7 @@ import pickle
 import config
 
 
-def execute_command_preprocess(preprocess_pcds=True, preprocess_jpgs=False):
+def execute_command_preprocess(preprocess_pcds=True, preprocess_jpgs=False, path_suffix=""):
     print("Preprocessing data-set...")
     
     print("Using '{}'".format(config.preprocessed_root_path))
@@ -38,8 +38,10 @@ def execute_command_preprocess(preprocess_pcds=True, preprocess_jpgs=False):
         os.mkdir(config.preprocessed_root_path)
     
     # Create the base-folder.
+    if path_suffix != "":
+        path_suffix = "-" + path_suffix
     datetime_path = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
-    base_path = os.path.join(config.preprocessed_root_path, datetime_path)
+    base_path = os.path.join(config.preprocessed_root_path, datetime_path + path_suffix)
     os.mkdir(base_path)
     if preprocess_pcds == True:
         os.mkdir(os.path.join(base_path, "pcd"))
@@ -50,32 +52,14 @@ def execute_command_preprocess(preprocess_pcds=True, preprocess_jpgs=False):
     # Process the filtered PCDs.
     if preprocess_pcds == True:
         
-        # Filter parameters.
-        #number_of_points_threshold=10000
-        #confidence_avg_threshold=0.75
-        #remove_unreasonable=True
-        #remove_errors=True
-        #remove_rejects=True 
-        # Save filter parameters.
-        #filter_parameters_path = os.path.join(base_path, "filter_parameters.txt")
-        #with open(filter_parameters_path, "w") as filter_parameters_file:
-        #    filter_parameters_file.write("number_of_points_threshold" + "," + str(number_of_points_threshold) + "\n")
-        #    filter_parameters_file.write("confidence_avg_threshold" + "," + str(confidence_avg_threshold) + "\n")
-        #    filter_parameters_file.write("remove_unreasonable" + "," + str(remove_unreasonable) + "\n")
-        #    filter_parameters_file.write("remove_errors" + "," + str(remove_errors) + "\n")
-        #    filter_parameters_file.write("remove_rejects" + "," + str(remove_rejects) + "\n")
-        
         # Get entries.
-        # TODO enable filtering
-        sql_statement = ""
-        sql_statement += "SELECT artifact_path, qr_code, height, weight FROM artifacts_with_targets"
-        sql_statement += " WHERE type='pcd'"
-        sql_statement += " AND type='pcd'"
-        sql_statement += " AND height >= 60"
-        sql_statement += " AND height <= 120"
-        sql_statement += " AND weight >= 2"
-        sql_statement += " AND weight <= 20"
-        sql_statement += ";"
+        sql_statement = """
+            SELECT artifact_path, qr_code, height, weight 
+            FROM artifacts_with_targets 
+            WHERE type='pcd'
+            AND status='standing'
+            ;
+            """
         main_connector = dbutils.connect_to_main_database()
         entries = main_connector.execute(sql_statement, fetch_all=True)
         print("Found {} PCDs. Processing...".format(len(entries)))
@@ -198,7 +182,7 @@ def filterjpgs(
 
 if __name__ == "__main__":
     
-    if len(sys.argv) != 2:
+    if len(sys.argv) < 2:
         raise Exception("ERROR! Must specify what to update. [images|pointclouds|all]")
 
     # Parse command line arguments.
@@ -214,5 +198,9 @@ if __name__ == "__main__":
         print("Updating all...")
         preprocess_jpgs = True
         preprocess_pcds = True
-                        
-    execute_command_preprocess(preprocess_pcds, preprocess_jpgs)
+    
+    path_suffix = ""
+    if len(sys.argv) > 2:
+        path_suffix = sys.argv[2]
+    
+    execute_command_preprocess(preprocess_pcds, preprocess_jpgs, path_suffix)
