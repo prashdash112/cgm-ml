@@ -12,7 +12,14 @@ Things to take into account:
 
 adjust config.py to contain paths to important folders for the following steps
 
-## Load persons
+## Check for database schema updates
+
+- cgm_database/schema.sql
+- cgm_database/schema_migration_2.0_2.1.sql
+
+## Load legacy data into database without ETL
+
+### Load persons
 
 command_update_persons.py
 
@@ -20,31 +27,21 @@ needs dbconnection.json
 
 takes csv file and writes content into person table
 
-
-## Load measures
+### Load measures
 
 command_update_measures.py
 
 takes csv file and writes content into measure
 
-
-
-## Load artifacts
+### Load artifacts
 
 command_update_artifacts.py
 
 takes csv file and writes content into measure
 
-
-## Create/update views
-
-cgm_database/views.sql
-
-
 ## Preprocess
 
 make changes to preprocess select sql in order to train with the artifacts you want
-
 
 ## Train on proper preprocessed path
 
