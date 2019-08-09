@@ -280,20 +280,11 @@ def update_artifactsquality_with_model():
     db_connector = dbutils.connect_to_main_database()
     sql_statement = ""
     sql_statement += "SELECT artifact_id, artifact_path, height, qr_code FROM artifacts_with_targets"
-    sql_statement += " WHERE type=\'pcd\'"
+    sql_statement += " WHERE type='pcd'"
+    sql_statement += " AND status='standing'"
     sql_statement += ";"
     artifacts = db_connector.execute(sql_statement, fetch_all=True)
     print("Found {} artifacts.".format(len(artifacts)))
-
-#    print("Getting all artifacts...")
-#    db_connector = dbutils.connect_to_main_database()
-#    sql_statement = ""
-#    sql_statement += "SELECT awt.artifact_id, awt.artifact_path, awt.height, awt.qr_code FROM artifacts_with_targets awt"
-#    sql_statement += " LEFT JOIN artifact_quality aq ON awt.artifact_id = aq.artifact_id"
-#    sql_statement += " WHERE awt.type=\'pcd\'"
-#    sql_statement += " AND aq.type='{}'".format(model_name)
-#    artifacts = db_connector.execute(sql_statement, fetch_all=True)
-#    print("Found {} artifacts.".format(len(artifacts)))
     
     # Method for processing a set of artifacts.
     # Note: This method will run in its own process.

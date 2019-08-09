@@ -115,7 +115,8 @@ for qrcodes_task in qrcodes_tasks:
         model.summary()
 
         # Compile the model.
-        optimizer = optimizers.RMSprop(lr=0.0001)
+        #optimizer = optimizers.RMSprop(lr=0.0001)
+        optimizer = optimizers.RMSprop()
         model.compile(
                 optimizer=optimizer,
                 loss="mse",

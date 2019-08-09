@@ -37,6 +37,7 @@ import multiprocessing
 import uuid
 from tqdm import tqdm
 import traceback
+from PIL import Image
 
     
 def load_pcd_as_ndarray(pcd_path):
@@ -537,3 +538,52 @@ def multiprocess(
             results.append(result)
     return results  
       
+    
+# Render a subsample of the artifacts.
+def render_artifacts_as_gallery(artifacts, targets=None, qr_code=None, timestamp=None, num_columns=10, target_size=(1920 // 4, 1080 // 4), image_path=None):
+    
+    # Render results image.
+    result_images = []
+    row_images = []
+    for artifact in artifacts:
+        path = artifact[0].replace("whhdata", "localssd")
+        img = Image.open(path)
+        img = img.resize(target_size)
+        img = np.array(img)
+        img = np.rot90(img, 3)
+        row_images.append(img)
+        if len(row_images) == num_columns:
+            row_image = np.hstack(row_images)
+            result_images.append(row_image)
+            row_images = []
+    # Handle last row.
+    if len(row_images) != 0:
+        while len(row_images) != num_columns:
+            black_image = np.zeros((target_size) + (3,)).astype("uint8")
+            row_images.append(black_image)
+        row_image = np.hstack(row_images)
+        result_images.append(row_image)
+    result_image = np.vstack(result_images)
+    
+    # Create title string.
+    title_string = ""
+    if qr_code is not None:
+        title_string += "QR-code: " + qr_code
+    if timestamp is not None:
+        title_string += "Timestamp: " + str(timestamp)
+    if targets is not None:
+        title_string += " Targets: " + ", ".join([str(target) for target in targets])
+    
+    # Render with plt.
+    # TODO render target
+    plt.figure(figsize=(20, int(20 * result_image.shape[0] / result_image.shape[1])))
+    plt.imshow(result_image)
+    plt.axis("off")
+    plt.title(title_string)
+    
+    if image_path == None:
+        plt.show()
+    else:
+        plt.savefig(image_path)
+    plt.close()
+
