@@ -135,7 +135,7 @@ model.compile(
 history = model.fit_generator(
     train_generator,
     steps_per_epoch=100,
-    epochs=100,
+    epochs=10,
     validation_data=validation_generator,
     validation_steps=50
 )
