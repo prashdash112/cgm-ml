@@ -14,11 +14,12 @@ import progressbar
 from pyntcloud import PyntCloud
 import shutil
 #import matplotlib.pyplot as plt
-#import multiprocessing as mp
-#import uuid
+import multiprocessing as mp
+import uuid
 import pickle
 from . import utils
-
+from bunch import Bunch
+#mp.set_start_method('forkserver', force=True)
 
 class PreprocessedDataGenerator(object):
     """
@@ -105,19 +106,6 @@ class PreprocessedDataGenerator(object):
         # Prepare the data.
         self._prepare_qrcodes_dictionary()
 
-        # Create some caches.
-        #self.image_cache = {}
-        #self.voxelgrid_cache = {}
-        #self.pointcloud_cache = {}
-        
-        # Check if paths are fine.
-        #if self.input_type == "image":
-        #    assert self.all_jpg_paths != []
-        #elif self.input_type == "voxelgrid" or self.input_type == "pointcloud":
-        #    assert self.all_pcd_paths != []
-        #else:
-        #    raise Exception("Unexpected: " + self.input_type)
-
 
     def _find_qrcodes(self):
         """
@@ -167,109 +155,63 @@ class PreprocessedDataGenerator(object):
             print("  Number of samples: {}".format(len(self.qrcodes_dictionary[qrcode])))
 
         
-    def generate(self, size, qrcodes_to_use=None, verbose=False, multiprocessing_jobs=1):
+    def generate(self, size, qrcodes_to_use=None, verbose=False, workers=1):
 
         if qrcodes_to_use == None:
             qrcodes_to_use = self.qrcodes
 
-        # Main loop.
-        while True:
-
-            # Use only a single process.
-            if multiprocessing_jobs == 1:
+        print("Using {} workers...".format(workers))
+            
+        # Main loop for single processing.
+        if workers == 1:
+            while True:
                 yield generate_data(self, size, qrcodes_to_use, verbose, None)
+                
+        # Main loop for multi processing.
+        elif workers > 1:  
+            pool = mp.Pool(workers + 2)
+            
+            self_bunch = Bunch()
+            self_bunch.qrcodes_dictionary = self.qrcodes_dictionary
+            self_bunch.sequence_length = self.sequence_length
+            self_bunch.output_targets = self.output_targets
+            self_bunch.input_type = self.input_type
+            self_bunch.pointcloud_target_size = self.pointcloud_target_size
 
-            # Use multiple processes.
-            elif multiprocessing_jobs > 1:
+            # Create chunks of almost equal size.
+            subset_sizes = [0] * workers
+            subset_sizes[0:workers - 1] = [size // workers] * (workers - 1)
+            subset_sizes[workers - 1] = size - sum(subset_sizes[0:workers - 1])
+            subset_sizes = [s for s in subset_sizes if s > 0]
+            assert sum(subset_sizes) == size
 
-                # Create chunks of almost equal size.
-                subset_sizes = [0] * multiprocessing_jobs
-                subset_sizes[0:multiprocessing_jobs - 1] = [size // multiprocessing_jobs] * (multiprocessing_jobs - 1)
-                subset_sizes[multiprocessing_jobs - 1] = size - sum(subset_sizes[0:multiprocessing_jobs - 1])
-                subset_sizes = [s for s in subset_sizes if s > 0]
-                assert sum(subset_sizes) == size
-
-                # Create an output_queue.
-                output_queue = mp.Queue()
-
-                # Create the processes.
-                processes = []
-                for subset_size in subset_sizes:
-                    process_target = generate_data
-                    process_args = (self, subset_size, qrcodes_to_use, verbose, yield_file_paths, output_queue)
-                    process = mp.Process(target=process_target, args=process_args)
-                    processes.append(process)
-
-                # Start the processes.
-                for p in processes:
-                    p.start()
-
-                # Exit the completed processes.
-                for p in processes:
-                    p.join()
-
-                # Get process results from the output queue
-                output_paths = [output_queue.get() for p in processes]
-
+            while True:
+                
+                # Spawn a couple of workers and get the results.
+                process_target = generate_data
+                multiple_results = [pool.apply_async(
+                    process_target, 
+                    (self_bunch, subset_size, qrcodes_to_use, verbose, "return_values")
+                ) for subset_size in subset_sizes]
+                
+                return_values_list = [res.get(timeout=1) for res in multiple_results]
+            
                 # Merge data.
                 x_inputs_arrays = []
                 y_outputs_arrays = []
                 file_paths_arrays = []
-                for output_path in output_paths:
-                    # Read data from file and delete it.
-                    result_values = pickle.load(open(output_path, "rb"))
-                    assert len(result_values[0]) > 0
-                    assert len(result_values[1]) > 0
-                    os.remove(output_path)
-
-                    # Gather the data into arrays.
-                    if x_inputs_arrays != []:
-                        assert result_values[0].shape[1:] == x_inputs_arrays[-1].shape[1:], str(result_values[0].shape) + " vs " + str(x_inputs_arrays[-1].shape)
-                    if y_outputs_arrays != []:
-                        assert result_values[1].shape[1:] == y_outputs_arrays[-1].shape[1:], str(result_values[1].shape) + " vs " + str(y_outputs_arrays[-1].shape)
-                    x_inputs_arrays.append(result_values[0])
-                    y_outputs_arrays.append(result_values[1])
-                    if yield_file_paths == True:
-                        file_paths_arrays.append(result_values[2])
-                    else:
-                        file_paths_arrays.append([])
-
+                for return_values in return_values_list:
+                    x_inputs_arrays.append(return_values[0])
+                    y_outputs_arrays.append(return_values[1])
                 x_inputs = np.concatenate(x_inputs_arrays)
                 y_outputs = np.concatenate(y_outputs_arrays)
-                file_paths = np.concatenate(file_paths_arrays)
-                assert len(x_inputs) == size
-                assert len(y_outputs) == size
 
                 # Done.
-                if yield_file_paths == False:
-                    yield x_inputs, y_outputs
-                else:
-                    yield x_inputs, y_outputs, file_paths
+                yield x_inputs, y_outputs
 
             else:
-                raise Exception("Unexpected value for 'multiprocessing_jobs' " + str(multiprocessing_jobs))
-                
-
-    #def _load_pointcloud(self, pcd_path, preprocess=True, augmentation=True):
-
-    #    pointcloud = self.pointcloud_cache.get(pcd_path, [])
-    #    if pointcloud == []:
-    #        pointcloud = PyntCloud.from_file(pcd_path).points.values
-
-    #        if self.pointcloud_target_size != None and preprocess == True:
-    #            pointcloud = np.array(pointcloud)[:,0:3] # Drop confidence.
-    #            pointcloud = pointcloud[:self.pointcloud_target_size]
-    #            if len(pointcloud) < self.pointcloud_target_size:
-    #                zeros = np.zeros((self.pointcloud_target_size - len(pointcloud), 4))
-    #                pointcloud = np.concatenate([pointcloud, zeros])
-
-    #        if self.pointcloud_random_rotation == True and augmentation==True:
-    #            numpy_points = pointcloud[:,0:3]
-    #            numpy_points = self._rotate_point_cloud(numpy_points)
-    #            pointcloud[:,0:3] = numpy_points
-
-            #self.pointcloud_cache[pcd_path] = pointcloud
-    #    return pointcloud
+                raise Exception("Unexpected value for 'workers' " + str(workers))
+               
 
     def _create_voxelgrid_from_pointcloud(self, pointcloud, augmentation=True):
         if self.voxelgrid_random_rotation == True and augmentation == True:
@@ -305,43 +247,8 @@ class PreprocessedDataGenerator(object):
 
         return rotated_data
        
-        
-def create_datagenerator_from_parameters(dataset_path, dataset_parameters):
-    print("Creating data-generator...")
-    datagenerator = PreprocessedDataGenerator(
-        dataset_path=dataset_path,
-        input_type=dataset_parameters["input_type"],
-        output_targets=dataset_parameters["output_targets"],
-        filter=dataset_parameters.get("filter", None),
-        sequence_length=dataset_parameters.get("sequence_length", 0),
-        voxelgrid_target_shape=dataset_parameters.get("voxelgrid_target_shape", None),
-        voxel_size_meters=dataset_parameters.get("voxel_size_meters", None),
-        voxelgrid_random_rotation=dataset_parameters.get("voxelgrid_random_rotation", None),
-        pointcloud_target_size=dataset_parameters.get("pointcloud_target_size", None),
-        pointcloud_random_rotation=dataset_parameters.get("pointcloud_random_rotation", None),
-        rgbmap_target_width=dataset_parameters.get("rgbmap_target_width", None),
-        rgbmap_target_height=dataset_parameters.get("rgbmap_target_height", None),
-        rgbmap_scale_factor=dataset_parameters.get("rgbmap_scale_factor", None),
-        rgbmap_axis=dataset_parameters.get("rgbmap_axis", None),
-    )
-    #datagenerator.print_statistics()
-    return datagenerator
-
-
-def get_dataset_path(root_path="/whhdata/preprocessed"):
-    if os.path.exists("etldatasetpath.txt"):
-        with open("etldatasetpath.txt", "r") as file:
-            dataset_path = file.read().replace("\n", "")
-    else:
-        # Finding the latest.
-        dataset_paths = glob.glob(os.path.join(root_path, "*"))
-        dataset_paths = [dataset_path for dataset_path in dataset_paths if os.path.isdir(dataset_path)]
-        dataset_path = list(reversed(sorted(dataset_paths)))[0]
-
-    return dataset_path
-
-
-def generate_data(class_self, size, qrcodes_to_use, verbose, output_queue):
+       
+def generate_data(class_self, size, qrcodes_to_use, verbose, return_control="return_values"):
     if verbose == True:
         print("Generating using QR-codes:", qrcodes_to_use)
 
@@ -429,15 +336,34 @@ def generate_data(class_self, size, qrcodes_to_use, verbose, output_queue):
     # Prepare result values.
     assert len(x_inputs) == size
     assert len(y_outputs) == size
-    return_values =  (x_inputs, y_outputs)
+    return_values = (x_inputs, y_outputs)
 
     # This is used in multiprocessing. Creates a pickle file and puts the data there.
-    if output_queue != None:
-        output_path = uuid.uuid4().hex + ".p"
-        pickle.dump(return_values, open(output_path, "wb"))
-        output_queue.put(output_path)
-    else:
+    def pickle_data(data):
+        pickle_path = utils.get_datetime_string() + str(random.random()) + ".temp"
+        pickle.dump(data, open(pickle_path, "wb"))
+        return pickle_path
+    
+    # Just return the path to the pickle file.
+    
+    # Return the values directly.
+    if return_control == "return_values":
         return return_values
+    
+    # Return path to pickled values.
+    elif return_control == "return_pickle_path":
+        return pickle_data(return_values)
+       
+    # Pickle values and store the path in queue.
+    elif isinstance(return_control, type(mp.Queue)):
+        output_queue = return_control
+        output_queue.put(pickle_data(return_values))
+    
+    # Should not happen.
+    else:
+        raise Exception("Unexpected {}".format(return_control))
+   
+    
 
 
 def load_pointcloud_and_target(file, output_targets):
@@ -481,3 +407,38 @@ def get_input(class_self, pointcloud):
         raise Exception("Unknown input_type: " + class_self.input_type)
 
     return x_input
+
+
+def create_datagenerator_from_parameters(dataset_path, dataset_parameters):
+    print("Creating data-generator...")
+    datagenerator = PreprocessedDataGenerator(
+        dataset_path=dataset_path,
+        input_type=dataset_parameters["input_type"],
+        output_targets=dataset_parameters["output_targets"],
+        filter=dataset_parameters.get("filter", None),
+        sequence_length=dataset_parameters.get("sequence_length", 0),
+        voxelgrid_target_shape=dataset_parameters.get("voxelgrid_target_shape", None),
+        voxel_size_meters=dataset_parameters.get("voxel_size_meters", None),
+        voxelgrid_random_rotation=dataset_parameters.get("voxelgrid_random_rotation", None),
+        pointcloud_target_size=dataset_parameters.get("pointcloud_target_size", None),
+        pointcloud_random_rotation=dataset_parameters.get("pointcloud_random_rotation", None),
+        rgbmap_target_width=dataset_parameters.get("rgbmap_target_width", None),
+        rgbmap_target_height=dataset_parameters.get("rgbmap_target_height", None),
+        rgbmap_scale_factor=dataset_parameters.get("rgbmap_scale_factor", None),
+        rgbmap_axis=dataset_parameters.get("rgbmap_axis", None),
+    )
+    #datagenerator.print_statistics()
+    return datagenerator
+
+
+def get_dataset_path(root_path="/whhdata/preprocessed"):
+    if os.path.exists("etldatasetpath.txt"):
+        with open("etldatasetpath.txt", "r") as file:
+            dataset_path = file.read().replace("\n", "")
+    else:
+        # Finding the latest.
+        dataset_paths = glob.glob(os.path.join(root_path, "*"))
+        dataset_paths = [dataset_path for dataset_path in dataset_paths if os.path.isdir(dataset_path)]
+        dataset_path = list(reversed(sorted(dataset_paths)))[0]
+
+    return dataset_path

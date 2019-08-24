@@ -68,8 +68,16 @@ for qrcodes_task in qrcodes_tasks:
     print("Using {} QR-codes for validation.".format(len(qrcodes_validate)))
 
     # Create python generators.
-    generator_train = datagenerator_instance.generate(size=batch_size, qrcodes_to_use=qrcodes_train)
-    generator_validate = datagenerator_instance.generate(size=batch_size, qrcodes_to_use=qrcodes_validate)
+    workers = 10
+    generator_train = datagenerator_instance.generate(
+        size=batch_size, 
+        qrcodes_to_use=qrcodes_train, 
+        workers=workers
+    )
+    generator_validate = datagenerator_instance.generate(
+        size=batch_size,
+        qrcodes_to_use=qrcodes_validate,
+        workers=workers)
 
     # Testing the genrators.
     def test_generator(generator):
@@ -96,8 +104,8 @@ for qrcodes_task in qrcodes_tasks:
 
     # Output path. Ensure its existence.
     output_path = os.path.join(output_root_path, datetime_string)
-    if os.path.exists(output_path) == False:
-        os.makedirs(output_path)
+    #if os.path.exists(output_path) == False:
+    #    os.makedirs(output_path)
     print("Using output path:", output_path)
 
     # Important things.
@@ -130,9 +138,11 @@ for qrcodes_task in qrcodes_tasks:
             epochs=epochs,
             validation_data=generator_validate,
             validation_steps=validation_steps,
-            use_multiprocessing=True,
-            workers=multiprocessing.cpu_count() - 1,
-            callbacks=[tensorboard_callback]
+            use_multiprocessing=False,
+            workers=0
+            #use_multiprocessing=True,
+            #workers=multiprocessing.cpu_count() - 1,
+            #callbacks=[tensorboard_callback]
             )
 
         histories["pointnet"] = history
