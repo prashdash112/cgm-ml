@@ -19,7 +19,7 @@ import uuid
 import pickle
 from . import utils
 from bunch import Bunch
-#mp.set_start_method('forkserver', force=True)
+#mp.set_start_method('fork', force=True)
 
 class PreprocessedDataGenerator(object):
     """
@@ -169,7 +169,8 @@ class PreprocessedDataGenerator(object):
                 
         # Main loop for multi processing.
         elif workers > 1:  
-            pool = mp.Pool(workers + 2)
+            pool = mp.Pool(workers)
+            self.pool = pool
             
             self_bunch = Bunch()
             self_bunch.qrcodes_dictionary = self.qrcodes_dictionary
@@ -178,6 +179,8 @@ class PreprocessedDataGenerator(object):
             self_bunch.input_type = self.input_type
             self_bunch.pointcloud_target_size = self.pointcloud_target_size
 
+            self_bunch = mp.Manager().dict(self_bunch)
+            
             # Create chunks of almost equal size.
             subset_sizes = [0] * workers
             subset_sizes[0:workers - 1] = [size // workers] * (workers - 1)
@@ -186,14 +189,14 @@ class PreprocessedDataGenerator(object):
             assert sum(subset_sizes) == size
 
             while True:
-                
-                # Spawn a couple of workers and get the results.
+                    
+                 # Spawn a couple of workers and get the results.
                 process_target = generate_data
                 multiple_results = [pool.apply_async(
                     process_target, 
                     (self_bunch, subset_size, qrcodes_to_use, verbose, "return_values")
                 ) for subset_size in subset_sizes]
-                
+
                 return_values_list = [res.get(timeout=1) for res in multiple_results]
             
                 # Merge data.
@@ -246,9 +249,18 @@ class PreprocessedDataGenerator(object):
             rotated_data[k, ...] = np.dot(shape_pc.reshape((-1, 3)), rotation_matrix)
 
         return rotated_data
+    
+    def finish(self):
+        if hasattr(self, "pool"):
+            self.pool.terminate()
+            self.pool.join()
        
        
 def generate_data(class_self, size, qrcodes_to_use, verbose, return_control="return_values"):
+    
+    if isinstance(class_self, type(Bunch)) == False:
+        class_self = Bunch(dict(class_self))
+    
     if verbose == True:
         print("Generating using QR-codes:", qrcodes_to_use)
 
@@ -265,7 +277,7 @@ def generate_data(class_self, size, qrcodes_to_use, verbose, return_control="ret
         qrcode = random.choice(qrcodes_to_use)
 
         # Get targets and paths randomly.
-        if qrcode not in  class_self.qrcodes_dictionary.keys():
+        if qrcode not in class_self.qrcodes_dictionary.keys():
             continue
             
         # Get a sample.
@@ -282,7 +294,7 @@ def generate_data(class_self, size, qrcodes_to_use, verbose, return_control="ret
 
                 x_input = get_input(class_self, pointcloud)
                 y_output = targets
-
+        """
         # Get the input. Dealing with sequences here.
         else:
             preprocessed_paths = np.array(class_self.qrcodes_dictionary[qrcode])
@@ -312,7 +324,8 @@ def generate_data(class_self, size, qrcodes_to_use, verbose, return_control="ret
             
             x_input = np.array(x_input)
             y_output = targets
- 
+        """
+        
         # Got a proper sample.
         if x_input is not None and y_output is not None:
             x_inputs.append(x_input)

@@ -68,7 +68,7 @@ for qrcodes_task in qrcodes_tasks:
     print("Using {} QR-codes for validation.".format(len(qrcodes_validate)))
 
     # Create python generators.
-    workers = 10
+    workers = 4
     generator_train = datagenerator_instance.generate(
         size=batch_size, 
         qrcodes_to_use=qrcodes_train, 
@@ -131,19 +131,24 @@ for qrcodes_task in qrcodes_tasks:
                 metrics=["mae"]
             )
 
-        # Train the model.
-        history = model.fit_generator(
-            generator_train,
-            steps_per_epoch=steps_per_epoch,
-            epochs=epochs,
-            validation_data=generator_validate,
-            validation_steps=validation_steps,
-            use_multiprocessing=False,
-            workers=0
-            #use_multiprocessing=True,
-            #workers=multiprocessing.cpu_count() - 1,
-            #callbacks=[tensorboard_callback]
-            )
+        try:
+            # Train the model.
+            history = model.fit_generator(
+                generator_train,
+                steps_per_epoch=steps_per_epoch,
+                epochs=epochs,
+                validation_data=generator_validate,
+                validation_steps=validation_steps,
+                use_multiprocessing=False,
+                workers=0
+                #use_multiprocessing=True,
+                #workers=multiprocessing.cpu_count() - 1,
+                #callbacks=[tensorboard_callback]
+                )
+        except KeyboardInterrupt:
+            print("ALAAAARM")
+            datagenerator_instance.finish()
+            
 
         histories["pointnet"] = history
         modelutils.save_model_and_history(output_path, datetime_string, model, history, training_details, "pointnet")
