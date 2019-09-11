@@ -3,6 +3,11 @@ This script trains PointNet.
 '''
 import sys
 sys.path.insert(0, "..")
+
+#import os
+#os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"   
+#os.environ["CUDA_VISIBLE_DEVICES"]="0"
+
 import warnings
 warnings.filterwarnings("ignore")
 from cgmcore import modelutils
@@ -33,6 +38,10 @@ epochs = 100
 batch_size = 16
 random_seed = 667
 
+from tensorflow.python.client import device_lib
+
+
+
 if len(utils.get_available_gpus()) == 0:
     output_root_path = "."
     steps_per_epoch = 1
@@ -41,7 +50,11 @@ if len(utils.get_available_gpus()) == 0:
     batch_size = 1
     random_seed = 667
     print("WARNING! No GPU available!")
+def get_available_gpus():
+    local_device_protos = device_lib.list_local_devices()
+    return [x.name for x in local_device_protos if x.device_type == 'GPU']
 
+print("GPUs", get_available_gpus())
     
 image_size = 128
 
@@ -51,6 +64,7 @@ dataset_parameters["input_type"] = "pointcloud"
 dataset_parameters["output_targets"] = ["height"]
 dataset_parameters["random_seed"] = random_seed
 dataset_parameters["pointcloud_target_size"] = 10000
+dataset_parameters["pointcloud_subsampling_method"] = "sequential_skip"
 dataset_parameters["pointcloud_random_rotation"] = False
 dataset_parameters["sequence_length"] = 0
 datagenerator_instance = create_datagenerator_from_parameters(dataset_path, dataset_parameters)
@@ -78,6 +92,7 @@ for qrcodes_task in qrcodes_tasks:
     test_generator(generator_train)
     test_generator(generator_validate)
 
+    exit(0)
     # Training details.
     training_details = {
         "dataset_path" : dataset_path,
