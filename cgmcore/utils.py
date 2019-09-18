@@ -78,7 +78,6 @@ def subsample_pointcloud(pointcloud, target_size, subsampling_method="random", d
         result[:len(pointcloud),:] = pointcloud[:target_size]
         
     elif subsampling_method == "sequential_skip":
-        assert False, "HURRA"
         #print("Original", len(pointcloud), "Target", target_size)
         result = np.zeros((target_size, pointcloud.shape[1]), dtype="float32")
         skip = max(1, round(len(pointcloud) / target_size))

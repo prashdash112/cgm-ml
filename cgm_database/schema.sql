@@ -79,6 +79,16 @@ CREATE TABLE IF NOT EXISTS measure_quality (
     measure_id VARCHAR(255) REFERENCES measure(id)
 );
 
+-- Creates a table for storing artifact results.
+CREATE TABLE IF NOT EXISTS artifact_result (
+    PRIMARY KEY(artifact_id, model_name, target_key),
+    model_name TEXT NOT NULL,
+    target_key TEXT NOT NULL,
+    value REAL NOT NULL,
+    artifact_id VARCHAR(255) REFERENCES artifact(id)
+);
+
+
 -- Creates a view for image data.
 DROP VIEW IF EXISTS image_data;
 CREATE VIEW image_data AS 

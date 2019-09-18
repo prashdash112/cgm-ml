@@ -34,15 +34,15 @@ output_root_path = "/whhdata/models"
 # Hyperparameters.
 steps_per_epoch = 400
 validation_steps = 40
-epochs = 100
+epochs = 400
 batch_size = 16
 random_seed = 667
 
 from tensorflow.python.client import device_lib
 
 
-
-if len(utils.get_available_gpus()) == 0:
+available_gpus = utils.get_available_gpus()
+if len(available_gpus) == 0:
     output_root_path = "."
     steps_per_epoch = 1
     validation_steps = 1
@@ -50,11 +50,7 @@ if len(utils.get_available_gpus()) == 0:
     batch_size = 1
     random_seed = 667
     print("WARNING! No GPU available!")
-def get_available_gpus():
-    local_device_protos = device_lib.list_local_devices()
-    return [x.name for x in local_device_protos if x.device_type == 'GPU']
-
-print("GPUs", get_available_gpus())
+print("GPUs", available_gpus)
     
 image_size = 128
 
@@ -92,7 +88,6 @@ for qrcodes_task in qrcodes_tasks:
     test_generator(generator_train)
     test_generator(generator_validate)
 
-    exit(0)
     # Training details.
     training_details = {
         "dataset_path" : dataset_path,
