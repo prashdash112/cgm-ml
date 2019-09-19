@@ -3,6 +3,11 @@ This script trains PointNet.
 '''
 import sys
 sys.path.insert(0, "..")
+
+#import os
+#os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"   
+#os.environ["CUDA_VISIBLE_DEVICES"]="0"
+
 import warnings
 warnings.filterwarnings("ignore")
 from cgmcore import modelutils
@@ -29,11 +34,15 @@ output_root_path = "/whhdata/models"
 # Hyperparameters.
 steps_per_epoch = 400
 validation_steps = 40
-epochs = 100
+epochs = 400
 batch_size = 16
 random_seed = 667
 
-if len(utils.get_available_gpus()) == 0:
+from tensorflow.python.client import device_lib
+
+
+available_gpus = utils.get_available_gpus()
+if len(available_gpus) == 0:
     output_root_path = "."
     steps_per_epoch = 1
     validation_steps = 1
@@ -41,7 +50,7 @@ if len(utils.get_available_gpus()) == 0:
     batch_size = 1
     random_seed = 667
     print("WARNING! No GPU available!")
-
+print("GPUs", available_gpus)
     
 image_size = 128
 
@@ -51,6 +60,7 @@ dataset_parameters["input_type"] = "pointcloud"
 dataset_parameters["output_targets"] = ["height"]
 dataset_parameters["random_seed"] = random_seed
 dataset_parameters["pointcloud_target_size"] = 10000
+dataset_parameters["pointcloud_subsampling_method"] = "sequential_skip"
 dataset_parameters["pointcloud_random_rotation"] = False
 dataset_parameters["sequence_length"] = 0
 datagenerator_instance = create_datagenerator_from_parameters(dataset_path, dataset_parameters)
