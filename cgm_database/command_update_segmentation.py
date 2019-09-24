@@ -134,8 +134,8 @@ print('model loaded successfully : ' + modelType)
 
 
 
-#def update_qrs(unique_qr_codes, process_index):
-def update_qrs(unique_qr_codes):
+def update_qrs(unique_qr_codes, process_index):
+#def update_qrs(unique_qr_codes):
 
     # initialize the rrogress bar with the maxium number of unique qr codes
     #bar = progressbar.ProgressBar(max_value=len(unique_qr_codes))
@@ -180,7 +180,7 @@ def update_qrs(unique_qr_codes):
                 orignal_im = Image.open(BytesIO(jpeg_str))
             except IOError:
                 print('Cannot retrieve image. Please check file: ' + img_path)
-                return
+                continue
 
 
             # apply segmentation via pre trained model

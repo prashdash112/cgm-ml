@@ -32,6 +32,8 @@ import cgm_fusion.utility
 import cgm_fusion.calibration 
 from cgm_fusion.fusion import apply_fusion 
 
+# import command_update_segmentation
+
 # import core packages from cgm
 from cgmcore.utils import load_pcd_as_ndarray
 from cgmcore import  utils
@@ -41,8 +43,82 @@ from pyntcloud import PyntCloud
 from timeit import default_timer as timer
 
 
+import tensorflow as tf
+from PIL import Image
+from io import BytesIO
+import datetime
+
+
 # Connect to database.
 main_connector = dbutils.connect_to_main_database()
+
+
+
+
+class DeepLabModel(object):
+  """Class to load deeplab model and run inference."""
+
+  INPUT_TENSOR_NAME = 'ImageTensor:0'
+  OUTPUT_TENSOR_NAME = 'SemanticPredictions:0'
+  INPUT_SIZE = 513
+  FROZEN_GRAPH_NAME = 'frozen_inference_graph'
+
+  def __init__(self, tarball_path):
+    """Creates and loads pretrained deeplab model."""
+    self.graph = tf.Graph()
+
+    graph_def = None
+    graph_def = tf.GraphDef.FromString(open(tarball_path + "/frozen_inference_graph.pb", "rb").read()) 
+
+    if graph_def is None:
+      raise RuntimeError('Cannot find inference graph in tar archive.')
+
+    with self.graph.as_default():
+      tf.import_graph_def(graph_def, name='')
+
+    config = tf.ConfigProto()
+    config.gpu_options.allow_growth = True
+#    session = tf.Session(config=config, ...)
+
+    self.sess = tf.Session(graph=self.graph, config=config)
+
+  def run(self, image):
+    """Runs inference on a single image.
+
+    Args:
+      image: A PIL.Image object, raw input image.
+
+    Returns:
+      resized_image: RGB image resized from original input image.
+      seg_map: Segmentation map of `resized_image`.
+    """
+    start = datetime.datetime.now()
+
+    width, height = image.size
+    resize_ratio = 1.0 * self.INPUT_SIZE / max(width, height)
+    target_size = (int(resize_ratio * width), int(resize_ratio * height))
+    resized_image = image.convert('RGB').resize(target_size, Image.ANTIALIAS)
+    batch_seg_map = self.sess.run(
+        self.OUTPUT_TENSOR_NAME,
+        feed_dict={self.INPUT_TENSOR_NAME: [np.asarray(resized_image)]})
+    seg_map = batch_seg_map[0]
+
+    end = datetime.datetime.now()
+
+    diff = end - start
+    logging.info("Time taken to evaluate segmentation is : " + str(diff))
+
+    return resized_image, seg_map
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -115,7 +191,7 @@ def get_timestamps_from_pcd(qr_code):
             timestamps = np.append(timestamps, stamp)
         except IndexError: 
             error = np.array([])
-            print ("Error with timestamp")
+            logging.error("Error with timestamp in pcd")
             return [error, path]
 
 
@@ -125,6 +201,50 @@ def get_timestamps_from_pcd(qr_code):
         return [error, path]
     
     return timestamps, path
+
+
+
+
+def apply_segmentation(jpg_path, model):
+
+    # get path and generate output path from it
+    seg_path = jpg_path.replace(".jpg", "_SEG.png")
+
+    # load image from path
+    try:
+        logging.info("Trying to open : " + jpg_path)
+        jpeg_str   = open(jpg_path, "rb").read()
+        orignal_im = Image.open(BytesIO(jpeg_str))
+    except IOError:
+        logging.error('Cannot retrieve image. Please check file: ' + jpg_path)
+        return
+
+
+    # apply segmentation via pre trained model
+    logging.info('running deeplab on image %s...' % jpg_path)
+    resized_im, seg_map = model.run(orignal_im)
+
+
+    # convert the image into a binary mask
+    width, height = resized_im.size
+    dummyImg = np.zeros([height, width, 4], dtype=np.uint8)
+    for x in range(width):
+        for y in range(height):
+            color = seg_map[y,x]
+            if color == 0:
+                dummyImg[y,x] = [0, 0, 0, 255]
+            else :
+                dummyImg[y,x] = [255,255,255,255]
+
+                
+    img = Image.fromarray(dummyImg)
+    img = img.convert('RGB').resize(orignal_im.size, Image.ANTIALIAS)
+    img.save('/tmp/output.png')
+
+    logging.info("saved file to" + seg_path)
+    img.save(seg_path)
+
+    return seg_path
 
 
 
@@ -150,24 +270,23 @@ def update_qrs(unique_qr_codes, process_index):
     #bar = progressbar.ProgressBar(max_value=len(unique_qr_codes))
     qr_counter = 0
 
+
+    # load model for segmentation
+    modelType = "/whhdata/models/segmentation/xception_model"
+    MODEL     = DeepLabModel(modelType)
+    logging.info('model loaded successfully : ' + modelType)
+
+
     for qr in tqdm(unique_qr_codes,position=process_index):
 
-        # update the qr code counter in every loop
-        # bar.update(qr_counter)
         qr_counter = qr_counter + 1
-
-        logging.error(qr_counter)
-
-        logging.error(qr)
 
         if qr == "{qrcode}":
             continue
+
         if qr == "data":
             continue
-        # if qr == "MH_WHH_0158":
-        #     continue
-        # if qr == "MH_WHH_0740":
-        #     continue
+
 
         [norm_rgb_time, rgb_path] = get_timestamps_from_rgb(qr)
         [norm_pcd_time, pcd_path] = get_timestamps_from_pcd(qr)
@@ -185,11 +304,13 @@ def update_qrs(unique_qr_codes, process_index):
             continue
 
         i = 0
+
+
         for pcd in norm_pcd_time:
             nn = find_closest(norm_rgb_time, pcd)
 
-            logging.error("timestamp of rgb: " + "{0:.2f}".format(round(pcd,2))               + " with index " + str(i)) # + " path: " + str(pcd_path[i]))
-            logging.error("timestamp of jpg: " + "{0:.2f}".format(round(norm_rgb_time[nn],2)) + " with index " + str(nn))# + " path: " + str(rgb_path[nn]))
+            logging.info("timestamp of rgb: " + "{0:.2f}".format(round(pcd,2))               + " with index " + str(i)) # + " path: " + str(pcd_path[i]))
+            logging.info("timestamp of jpg: " + "{0:.2f}".format(round(norm_rgb_time[nn],2)) + " with index " + str(nn))# + " path: " + str(rgb_path[nn]))
 
             # get the original file path 
             path, filename = os.path.split(str(pcd_path[i]))
@@ -198,15 +319,32 @@ def update_qrs(unique_qr_codes, process_index):
             pcd_file = pcd_file[0]
             jpg_file = rgb_path[nn]
 
+            # manipulate the file names for the database
+            jpg_file = jpg_file.replace("/whhdata/", "/localssd/")
+            png_file = pcd_file.replace("/whhdata/", "/localssd/")
+
+            
+            # check if a segmentation for the found jpg exists
+            seg_path = jpg_file.replace('.jpg', '_SEG.png')
+            if not( os.path.exists(seg_path) ):
+                logging.debug('applying segmentation')
+                seg_path = apply_segmentation(jpg_file, MODEL)
+
+                # check if the path now exists
+                if not( os.path.exists(seg_path) ):
+                    logging.error('Segmented file does not exist: ' + seg_path)
+
             i = i+1
 
             cali_file = '/whhdata/calibration.xml'
             # the poin
             # cloud is fused and additionally the cloud is saved as ply in the same folder
             try: 
-                fused_cloud = apply_fusion(cali_file, pcd_file, jpg_file)
-            except: 
-                print ("Something went wrong. ")
+                # TODO add the segmented point cloud to the path
+                fused_cloud = apply_fusion(cali_file, pcd_file, jpg_file, seg_path)
+            except Exception as e: 
+                logging.error("Something went wrong. ")
+                logging.error(str(e))
                 continue
 
             # now save the new data to the folder
@@ -225,9 +363,10 @@ def update_qrs(unique_qr_codes, process_index):
             
             
             try: 
-                fused_cloud.to_file(pc_filename)
+                fused_cloud.to_file(pc_filename)                        # save the fused point cloud    
+                fused_cloud.to_file('/tmp/cloud_debug.ply')             # save for debugging
             except AttributeError :
-                print (" skipping this file to save ") 
+                loggin.error("An error occured -- skipping this file to save ") 
                 continue
     #bar.finish()
 
@@ -236,28 +375,25 @@ def update_qrs(unique_qr_codes, process_index):
 
 def main():
     # get a list of all unique qr_codes
-    sql_statement = "SELECT DISTINCT artifact.qr_code FROM artifact  ORDER BY qr_code ASC;"
+    sql_statement   = "SELECT DISTINCT artifact.qr_code FROM artifact  ORDER BY qr_code ASC;"
     unique_qr_codes = main_connector.execute(sql_statement, fetch_all=True)
-
 
     # todo: remove the (1) or (2) backup ?
     unique_qr_codes = [x[0] for x in unique_qr_codes]
 
-
     # initialze log file
     logging.basicConfig(filename='/tmp/command_update_fusion.log',level=logging.DEBUG, format='%(asctime)s %(message)s')
 
-
-    #update_qrs(unique_qr_codes)
-    
     # Run this in multiprocess mode.
     utils.multiprocess(unique_qr_codes, 
-        process_method=update_qrs, 
-        process_individial_entries=False, 
-        pass_process_index=True, 
-        progressbar=False)
+        process_method              = update_qrs, 
+        process_individial_entries  = False, 
+        number_of_workers           = 4,
+        pass_process_index          = True, 
+        progressbar                 = False, 
+        disable_gpu                 =True)
     
-    print("Done.")
+    print("*** Done ***.")
 
 
 

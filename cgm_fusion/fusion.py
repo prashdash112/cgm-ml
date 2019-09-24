@@ -1,4 +1,25 @@
+#
+# Child Growth Monitor - Free Software for Zero Hunger
+# Copyright (c) 2019 Dr. Christian Pfitzner <christian.pfitzner@th-nuernberg.de> for Welthungerhilfe
+#
+#     This program is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This program is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
 
+
+'''
+import the necessary functions
+'''
 import sys
 import os  
 import cv2
@@ -12,87 +33,75 @@ from cgm_fusion.utility import write_color_ply, fuse_point_cloud
 from pyntcloud import PyntCloud
 
 
-def apply_fusion(calibration_file, pcd_file, jpg_file):
+def apply_fusion(calibration_file, pcd_file, jpg_file, seg_path):
 
-    # check all files exist
-    if not os.path.exists(pcd_file): 
-        print ('Point cloud does not exist')
+
+    ''' 
+    check the path if everything is correct
+    '''
+    if not os.path.exists(pcd_file):                        # check all files exist
+        logging.error ('Point cloud does not exist')
         return
         
-    if not os.path.exists(jpg_file):
-        print ('Image does not exist')
+    if not os.path.exists(jpg_file):                        # check if the jpg file exists
+        logging.error ('Image does not exist')
         return 
 
-    if not os.path.exists(calibration_file):
-        print ('Calibration does not exist')
+    if not os.path.exists(seg_path):                        # check if segmentation exists
+        logging.error('Segmentation not found')
+        return
+
+    if not os.path.exists(calibration_file):                # check if the califile exists
+        logging.error ('Calibration does not exist')
         return 
 
 
-    # load the data from the files
     try:
-        cloud      = PyntCloud.from_file(pcd_file)  
+        cloud      = PyntCloud.from_file(pcd_file)         # load the data from the files
     except ValueError:
-        print (" Error reading point cloud ")
+        logging.error(" Error reading point cloud ")
         raise
         return
 
 
-    jpg        = cv2.imread(jpg_file, -1)
-    jpg = cv2.flip( jpg, 0 )
+
+    jpg        = cv2.imread(jpg_file, -1)       
+    jpg        = cv2.flip( jpg, 0 )
+
+    seg        = cv2.imread(seg_path, -1)
+    seg        = cv2.flip( seg, 0)
+
     hh, ww, _  = jpg.shape
 
     points     = cloud.points.values[:, :3]
     confidence = cloud.points.values[:, 3]
+    
 
-   # print (points[0])
-   # print (confidence[0])
 
     # get the data for calibration
     intrinsic  = get_intrinsic_matrix()
     ext_d      = get_extrinsic_matrix(4)
-    #ext_rgb    = get_extrinsic_matrix(3)
-    #diff       = ext_rgb @ np.linalg.inv(ext_d)
 
-
-    # Hpoints    = np.concatenate([points, np.ones((points.shape[0], 1), dtype=points.dtype)], axis=1)
-    # Hpoints    = np.transpose(diff @ Hpoints.T)
-
-    # im_coords  = np.transpose(intrinsic @ Hpoints.T)
-    # color_vals = np.zeros_like(points)
-
-    # for i, t in enumerate(im_coords):
-    #     x, y, _ = t
-    #     x = int(np.round(x))
-    #     y = int(np.round(y))
-    #     if x >= 0 and x < ww and y >= 0 and y < hh:
-    #         color_vals[i, :] = jpg[y, x]
-
-    # fused_point_cloud = fuse_point_cloud(points,color_vals)     
-            
-    # write_color_ply('/tmp/color_pc.ply', points, color_vals)
-    # return  fused_point_cloud
-
-
-
-    r_vec = ext_d[:3, :3]
-    t_vec = -ext_d[:3, 3]
+    r_vec      = ext_d[:3, :3]
+    t_vec      = -ext_d[:3, 3]
 
     k1, k2, k3 = get_k()
     im_coords, _ = cv2.projectPoints(points, r_vec, t_vec, intrinsic[:3, :3], np.array([k1, k2, 0, 0]))
 
 
-    color_vals = np.zeros_like(points)
+    color_vals   = np.zeros_like(points)
+    segment_vals = np.zeros_like(points)
 
     for i, t in enumerate(im_coords):
         x, y = t.squeeze()
         x = int(np.round(x))
         y = int(np.round(y))
         if x >= 0 and x < ww and y >= 0 and y < hh:
-            color_vals[i, :] = jpg[y, x]
+            color_vals[i, :]   = jpg[y, x]
+            segment_vals[i, :] = seg[y, x] 
 
-    #write_color_ply('/tmp/color_pc_cv2.ply', points, color_vals, confidence)
 
-    fused_point_cloud = fuse_point_cloud(points, color_vals, confidence)
+    fused_point_cloud = fuse_point_cloud(points, color_vals, confidence, segment_vals)
 
     return  fused_point_cloud
 
