@@ -38,6 +38,7 @@ import uuid
 from tqdm import tqdm
 import traceback
 from PIL import Image
+import math
 
     
 def load_pcd_as_ndarray(pcd_path):
@@ -48,16 +49,49 @@ def load_pcd_as_ndarray(pcd_path):
     values = pointcloud.points.values
     return values
 
-def subsample_pointcloud(pointcloud, target_size):
+
+def subsample_pointcloud(pointcloud, target_size, subsampling_method="random", dimensions=[0, 1, 2]):
     """
     Yields a subsampled pointcloud.
+    
+    These subsamplinge modes are available:
+    - "random": Yields a random subset. Multiple occurrences of a single point are possible.
+    - "first": Yields the first n points
+    - "sequential_skip": Attempts to keep the order of the points intact, might skip some elements if the pointcloud is too big. E.g. every second point is skipped.
+    
+    Note: All methods ensure that the target_size is met. If necessary zeroes are appended.
     """
     
-    # Currently only random subsampling.
-    indices = np.arange(0, pointcloud.shape[0])
-    indices = np.random.choice(indices, target_size)
-    pointcloud = pointcloud[indices,0:3]
-    return pointcloud
+    # Check if the requested subsampling method is all right.
+    possible_subsampling_methods = ["random", "first", "sequential_skip"]
+    assert subsampling_method in possible_subsampling_methods, "Subsampling method {} not in {}".format(subsampling_method, possible_subsampling_methods)
+    
+    
+    # Random subsampling.
+    if subsampling_method == "random":
+        indices = np.arange(0, pointcloud.shape[0])
+        indices = np.random.choice(indices, target_size)
+        result = pointcloud[indices,0:3]
+    
+    elif subsampling_method == "first":
+        result = np.zeros((target_size, pointcloud.shape[1]), dtype="float32")
+        result[:len(pointcloud),:] = pointcloud[:target_size]
+        
+    elif subsampling_method == "sequential_skip":
+        #print("Original", len(pointcloud), "Target", target_size)
+        result = np.zeros((target_size, pointcloud.shape[1]), dtype="float32")
+        skip = max(1, round(len(pointcloud) / target_size))
+        #print("Skip", skip)
+        pointcloud_skipped = pointcloud[::skip,:]
+        #print("After Skip", len(pointcloud_skipped))
+        
+        result = np.zeros((target_size, pointcloud.shape[1]), dtype="float32")
+        result[:len(pointcloud_skipped),:] = pointcloud_skipped[:target_size]
+        #print("Result", len(result))
+        #print("")
+
+    return result[:,dimensions]
+    
     
 def load_vtk(vtk_path):
     """
@@ -586,4 +620,3 @@ def render_artifacts_as_gallery(artifacts, targets=None, qr_code=None, timestamp
     else:
         plt.savefig(image_path)
     plt.close()
-

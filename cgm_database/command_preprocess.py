@@ -42,12 +42,14 @@ def execute_command_preprocess(preprocess_pcds=True, preprocess_jpgs=False, path
         path_suffix = "-" + path_suffix
     datetime_path = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
     base_path = os.path.join(config.preprocessed_root_path, datetime_path + path_suffix)
+    print("Writing preprocessed data to {}...".format(base_path))
+    
+    # Create folders.
     os.mkdir(base_path)
     if preprocess_pcds == True:
         os.mkdir(os.path.join(base_path, "pcd"))
     if preprocess_jpgs == True:
         os.mkdir(os.path.join(base_path, "jpg"))
-    print("Writing preprocessed data to {}...".format(base_path))
     
     # Process the filtered PCDs.
     if preprocess_pcds == True:
@@ -55,11 +57,13 @@ def execute_command_preprocess(preprocess_pcds=True, preprocess_jpgs=False, path
         # Get entries.
         sql_statement = """
             SELECT artifact_path, qr_code, height, weight 
-            FROM artifacts_with_targets 
+            FROM artifacts_with_targets
             WHERE type='pcd'
             AND status='standing'
+            AND (POSITION('_100_' in artifact_path) > 0 OR POSITION('_104_' in artifact_path) > 0)
             ;
             """
+        
         main_connector = dbutils.connect_to_main_database()
         entries = main_connector.execute(sql_statement, fetch_all=True)
         print("Found {} PCDs. Processing...".format(len(entries)))

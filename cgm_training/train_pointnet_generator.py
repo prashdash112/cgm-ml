@@ -27,8 +27,8 @@ print("Using dataset path", dataset_path)
 output_root_path = "/whhdata/models"
 
 # Hyperparameters.
-steps_per_epoch = 400
-validation_steps = 40
+steps_per_epoch = 1000
+validation_steps = 200
 epochs = 100
 batch_size = 16
 random_seed = 667
@@ -52,6 +52,7 @@ dataset_parameters["output_targets"] = ["height"]
 dataset_parameters["random_seed"] = random_seed
 dataset_parameters["pointcloud_target_size"] = 10000
 dataset_parameters["pointcloud_random_rotation"] = False
+dataset_parameters["pointcloud_subsampling_method"] = "sequential_skip"
 dataset_parameters["sequence_length"] = 0
 datagenerator_instance = create_datagenerator_from_parameters(dataset_path, dataset_parameters)
 
@@ -96,17 +97,20 @@ for qrcodes_task in qrcodes_tasks:
         "epochs" : epochs,
         "batch_size" : batch_size,
         "random_seed" : random_seed,
-        "dataset_parameters" : dataset_parameters
+        "dataset_parameters" : dataset_parameters,
+        "hidden_sizes" : [512, 256, 128]
     }
 
     # Date time string.
     datetime_string = utils.get_datetime_string() + "_{}-{}".format(len(qrcodes_train), len(qrcodes_validate)) + "_".join(dataset_parameters["output_targets"])
+    if len(sys.argv) > 2:
+        datetime_string += "-" + sys.argv[2]
 
     # Output path. Ensure its existence.
     output_path = os.path.join(output_root_path, datetime_string)
-    #if os.path.exists(output_path) == False:
-    #    os.makedirs(output_path)
     print("Using output path:", output_path)
+    if os.path.exists(output_path) == False:
+        os.makedirs(output_path)
 
     # Important things.
     pp = pprint.PrettyPrinter(indent=4)
@@ -114,12 +118,19 @@ for qrcodes_task in qrcodes_tasks:
     tensorboard_callback = callbacks.TensorBoard(log_dir=log_dir)
     histories = {}
 
+    # Stopping early based on the loss.
+    #early_stopping_callback = callbacks.EarlyStopping(
+    #    monitor="val_loss",
+    #    restore_best_weights=True,
+    #    patience = 10
+    #)
+
     # Training network.
     def train_pointclouds():
 
         input_shape = (dataset_parameters["pointcloud_target_size"], 3)
         output_size = 1
-        model = modelutils.create_point_net(input_shape, output_size, hidden_sizes = [512, 256, 128])
+        model = modelutils.create_point_net(input_shape, output_size, hidden_sizes=training_details["hidden_sizes"] )
         model.summary()
 
         # Compile the model.
@@ -140,13 +151,11 @@ for qrcodes_task in qrcodes_tasks:
                 validation_data=generator_validate,
                 validation_steps=validation_steps,
                 use_multiprocessing=False,
-                workers=0
-                #use_multiprocessing=True,
-                #workers=multiprocessing.cpu_count() - 1,
-                #callbacks=[tensorboard_callback]
+                workers=0,
+                callbacks=[tensorboard_callback]
                 )
         except KeyboardInterrupt:
-            print("ALAAAARM")
+            print("Gracefully finishing on user request...")
             datagenerator_instance.finish()
             
 
