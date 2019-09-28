@@ -56,13 +56,28 @@ def write_color_ply(fname, points, color_vals, confidence):
 
 
 
-from cgm_fusion.calibration import get_intrinsic_matrix, get_extrinsic_matrix, get_k
+#from cgm_fusion.calibration import get_intrinsic_matrix, get_extrinsic_matrix, get_k, get_intrinsic_matrix_depth
 
+from  cgm_fusion.calibration import *
+
+
+def apply_projection(points):
+    intrinsic  = get_intrinsic_matrix_depth()
+
+    ext_d      = get_extrinsic_matrix_depth(4)
+
+    r_vec      =  ext_d[:3, :3]
+    t_vec      = -ext_d[:3, 3]
+
+    k1, k2, k3 = get_k_depth()
+    im_coords, _ = cv2.projectPoints(points, r_vec, t_vec, intrinsic[:3, :3], np.array([k1, k2, 0, 0]))
+
+    return im_coords
 
 '''
 Function to get the depth from a point cloud as an image for visualization
 '''
-def get_viz_depth(ply_path):
+def get_viz_depth(ply_path, channel=2):
 
     calibration_file =  '/whhdata/calibration.xml'
     if not os.path.exists(calibration_file):                # check if the califile exists
@@ -70,41 +85,26 @@ def get_viz_depth(ply_path):
         return 
 
     # get a default black image
-    height         = 1200
-    width          = 1920 
+    height         = 224
+    width          = 172
     nr_of_channels = 1
     viz_image = np.zeros((height,width,nr_of_channels), np.uint8)
 
     # get the points from the pointcloud
     try:
-        cloud  = PyntCloud.from_file(ply_path)         # load the data from the files
+        cloud  = PyntCloud.from_file(ply_path)              # load the data from the files
     except ValueError as e: 
         logging.error(" Error reading point cloud ")
         logging.error(str(e))
         
         
-    points = cloud.points.values[:, :3]                     # get x y z
-    z      = cloud.points.values[:, 2]                      # get only z coordinate
-
-    # calculate the min and the max value of z 
-    # z_min  = np.amin(z)
-    # z_max  = np.amax(z)
-
-    # print('Minimum z value: ' + str(z_min))
-    # print('Maximum z value: ' + str(z_max))
+    points = cloud.points.values[:, :3]                            # get x y z
+    z      = cloud.points.values[:, channel]                      # get only z coordinate
+    z      = (z - min(z)) / (max(z) - min(z))                  # normalize the data to 0 to 1
 
     # iterat of the points and calculat the x y coordinates in the image
     # get the data for calibration 
-    # TODO make this an on function
-    intrinsic  = get_intrinsic_matrix()
-    ext_d      = get_extrinsic_matrix(4)
-
-    r_vec      = ext_d[:3, :3]
-    t_vec      = -ext_d[:3, 3]
-
-    k1, k2, k3 = get_k()
-    im_coords, _ = cv2.projectPoints(points, r_vec, t_vec, intrinsic[:3, :3], np.array([k1, k2, 0, 0]))
-
+    im_coords = apply_projection(points)
 
     # manipulate the pixels color value depending on the z coordinate
     # TODO make this a function
@@ -113,11 +113,13 @@ def get_viz_depth(ply_path):
         x = int(np.round(x))
         y = int(np.round(y))
         if x >= 0 and x < width and y >= 0 and y < height:
-            #z = 255*(z[i] - z_min) / z_max
-            viz_image[x,y] = z[i] * 1000
+            viz_image[x,y] = 255*z[i]
 
-    # return the image after pricessing
+    # resize and  return the image after pricessing
+    imgScale  = 0.25
+    newX,newY = viz_image.shape[1]*imgScale, viz_image.shape[0]*imgScale
     cv2.imwrite('/tmp/depth_visualization.png', viz_image) 
+
     return viz_image
 
 # '''
