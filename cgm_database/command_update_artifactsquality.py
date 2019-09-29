@@ -40,7 +40,7 @@ from tqdm import tqdm
 
 def main():
     
-    commands = ["bluriness", "pointcloud", "model", "posenet"]
+    commands = ["bluriness", "pointcloud", "fusion", "model", "posenet"]
     
     if len(sys.argv) == 1 or sys.argv[1] not in commands:
         print("ERROR! Must use one of", commands)
@@ -48,12 +48,14 @@ def main():
         update_artifactsquality_with_bluriness()
     elif sys.argv[1] == "pointcloud":
         update_artifactsquality_with_pointcloud_data()
+    elif sys.argv[1] == "fusion":
+        update_artifactsquality_with_pointcloud_data("pcrgb")
     elif sys.argv[1] == "model":
         update_artifactsquality_with_model()
     elif sys.argv[1] == "posenet":
         update_artifactsquality_with_posenet()
     else:
-        print("ERROR!")
+        print("ERROR! -- allowed parameters bluriness | pointcloud | fusion | model | posenet")
   
     
 def update_artifactsquality_with_bluriness():
@@ -120,18 +122,18 @@ def get_blur_variance(image_path):
     return None
 
 
-def update_artifactsquality_with_pointcloud_data():
+def update_artifactsquality_with_pointcloud_data(db_type = "pcd"):
     
     # The relevant keys.
     db_keys = ["number_of_points", "confidence_min", "confidence_std", "confidence_max", "confidence_avg", "centroid_x", "centroid_y", "centroid_z", "stdev_x", "stdev_z"]
     
     # Get all pointclouds.
-    sql_script = "SELECT id, path FROM artifact WHERE type='pcd'"
+    sql_script = "SELECT id, path FROM artifact WHERE type='pcrgb'"
     db_connector = dbutils.connect_to_main_database()
     pointcloud_entries = db_connector.execute(sql_script, fetch_all=True)
     print("Found {} pointclouds.".format(len(pointcloud_entries)))
     
-    db_type = "pcd"
+    #db_type = "pcd"
     
     def process_pointcloud_entries(pointcloud_entries, process_index):
         db_connector = dbutils.connect_to_main_database()
@@ -189,7 +191,7 @@ def update_artifactsquality_with_pointcloud_data():
         process_individial_entries=False, 
         pass_process_index=True,
         progressbar=False,
-        number_of_workers=4
+        number_of_workers=None
     )
     print("Done.")
 
@@ -280,7 +282,7 @@ def update_artifactsquality_with_model():
     db_connector = dbutils.connect_to_main_database()
     sql_statement = ""
     sql_statement += "SELECT artifact_id, artifact_path, height, qr_code FROM artifacts_with_targets"
-    sql_statement += " WHERE type='pcd'"
+    sql_statement += " WHERE type='pcrgb'"
     sql_statement += " AND status='standing'"
     sql_statement += ";"
     artifacts = db_connector.execute(sql_statement, fetch_all=True)
@@ -354,9 +356,9 @@ def update_artifactsquality_with_model():
         
 def load_model(model_path):
 
-    input_shape = (10000, 3)
+    input_shape = (10000, 7)
     output_size = 1
-    model = modelutils.create_point_net(input_shape, output_size, hidden_sizes = [512, 256, 128])
+    model = modelutils.create_point_net(input_shape, output_size, hidden_sizes = [512, 256, 128, 64])
     model.load_weights(model_path)
     model.compile(
         optimizer="rmsprop",
@@ -415,7 +417,7 @@ def update_artifactsquality_with_posenet():
         process_method=process_image_entries, 
         process_individial_entries=False, 
         progressbar=False,
-        number_of_workers=2
+        number_of_workers=None
     )
     print("Done.")
 

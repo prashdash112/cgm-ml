@@ -29,7 +29,7 @@ import pickle
 import config
 
 
-def execute_command_preprocess(preprocess_pcds=True, preprocess_jpgs=False, path_suffix=""):
+def execute_command_preprocess(preprocess_pcds=True, preprocess_ply=False, preprocess_jpgs=False, path_suffix=""):
     print("Preprocessing data-set...")
     
     print("Using '{}'".format(config.preprocessed_root_path))
@@ -37,18 +37,26 @@ def execute_command_preprocess(preprocess_pcds=True, preprocess_jpgs=False, path
         print("Folder does not exists. Creating...")
         os.mkdir(config.preprocessed_root_path)
     
+
     # Create the base-folder.
     if path_suffix != "":
         path_suffix = "-" + path_suffix
     datetime_path = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
     base_path = os.path.join(config.preprocessed_root_path, datetime_path + path_suffix)
     os.mkdir(base_path)
+
+
     if preprocess_pcds == True:
         os.mkdir(os.path.join(base_path, "pcd"))
+    if preprocess_ply == True:
+        os.mkdir(os.path.join(base_path, "ply"))
     if preprocess_jpgs == True:
         os.mkdir(os.path.join(base_path, "jpg"))
+
+
     print("Writing preprocessed data to {}...".format(base_path))
     
+
     # Process the filtered PCDs.
     if preprocess_pcds == True:
         
@@ -84,7 +92,57 @@ def execute_command_preprocess(preprocess_pcds=True, preprocess_jpgs=False, path
         
         # Start multiprocessing.
         utils.multiprocess(entries, process_pcd_entry)
-    
+
+
+    if preprocess_ply == True:
+        
+        # Get entries.
+        sql_statement = """
+            SELECT artifact_path, qr_code, height, weight 
+            FROM artifacts_with_targets 
+            WHERE type='pcrgb'
+            AND status='standing'
+            ;
+            """
+        main_connector = dbutils.connect_to_main_database()
+        entries = main_connector.execute(sql_statement, fetch_all=True)
+        print("Found {} Plys. Processing...".format(len(entries)))
+        
+        # Method for processing a single entry.
+        def process_ply_entry(entry):
+            path, qr_code, height, weight = entry
+
+            print(path)
+
+            if os.path.exists(path) == False:
+                print("\n", "File {} does not exist!".format(path), "\n")
+                return
+
+                
+            try:
+                pointcloud = utils.load_pcd_as_ndarray(path)
+                targets = np.array([height, weight])
+                pickle_filename = os.path.basename(path).replace(".ply", ".p")
+                qrcode_path = os.path.join(base_path, "ply", qr_code)
+
+#                print('qr code path: ' + qrcode_path)
+
+               # if not os.path.exists(qrcode_path):
+                os.mkdir(qrcode_path)
+                print('creating path')
+
+
+                pickle_output_path = os.path.join(qrcode_path, pickle_filename)
+                pickle.dump((pointcloud, targets), open(pickle_output_path, "wb"))
+            except BaseException as e:
+                print(e) 
+                pass
+        
+        # Start multiprocessing.
+        utils.multiprocess(entries, process_ply_entry)
+
+
+
     # Process the filtered JPGs.
     if preprocess_jpgs == True:
         assert False
@@ -183,24 +241,29 @@ def filterjpgs(
 if __name__ == "__main__":
     
     if len(sys.argv) < 2:
-        raise Exception("ERROR! Must specify what to update. [images|pointclouds|all]")
+        raise Exception("ERROR! Must specify what to update. [images|pointclouds|fusion|all]")
 
     # Parse command line arguments.
     preprocess_pcds = False
     preprocess_jpgs = False
+    preprocess_ply  = False
     if sys.argv[1] == "images":
         print("Updating images only...")
         preprocess_jpgs = True
     elif sys.argv[1] == "pointclouds":
         print("Updating pointclouds only...")
         preprocess_pcds = True
+    elif sys.argv[1] == "fusion":
+        print("Updating fusion only...")
+        preprocess_ply = True
     elif sys.argv[1] == "all":
         print("Updating all...")
         preprocess_jpgs = True
         preprocess_pcds = True
+        preprocess_ply  = True
     
     path_suffix = ""
     if len(sys.argv) > 2:
         path_suffix = sys.argv[2]
     
-    execute_command_preprocess(preprocess_pcds, preprocess_jpgs, path_suffix)
+    execute_command_preprocess(preprocess_pcds, preprocess_ply, preprocess_jpgs, path_suffix)

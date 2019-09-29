@@ -173,6 +173,8 @@ def create_point_net(input_shape, output_size, hidden_sizes = [512, 256]):
         Model: A model.
     """
 
+    print('Input Shape: ' + str(input_shape))
+
     num_points = input_shape[0]
 
     def mat_mul(A, B):
@@ -180,8 +182,7 @@ def create_point_net(input_shape, output_size, hidden_sizes = [512, 256]):
         return result
 
     input_points = layers.Input(shape=input_shape)
-    x = layers.Convolution1D(64, 1, activation='relu',
-                      input_shape=input_shape)(input_points)
+    x = layers.Convolution1D(64, 1, activation='relu', input_shape=input_shape)(input_points)
     x = layers.BatchNormalization()(x)
     x = layers.Convolution1D(128, 1, activation='relu')(x)
     x = layers.BatchNormalization()(x)
@@ -193,11 +194,12 @@ def create_point_net(input_shape, output_size, hidden_sizes = [512, 256]):
     x = layers.Dense(256, activation='relu')(x)
     x = layers.BatchNormalization()(x)
     x = layers.Dense(9, weights=[np.zeros([256, 9]), np.array([1, 0, 0, 0, 1, 0, 0, 0, 1]).astype(np.float32)])(x)
-    input_T = layers.Reshape((3, 3))(x)
+    input_T = layers.Reshape((input_shape[1], input_shape[1]))(x)
+
 
     # forward net
-    g = layers.Lambda(mat_mul, arguments={'B': input_T})(input_points)
-    g = layers.Convolution1D(64, 1, input_shape=input_shape, activation='relu')(g)
+#    g = layers.Lambda(mat_mul, arguments={'B': input_T})(input_points)
+    g = layers.Convolution1D(64, 1, input_shape=input_shape, activation='relu')(input_points)
     g = layers.BatchNormalization()(g)
     g = layers.Convolution1D(64, 1, input_shape=input_shape, activation='relu')(g)
     g = layers.BatchNormalization()(g)
@@ -234,7 +236,7 @@ def create_point_net(input_shape, output_size, hidden_sizes = [512, 256]):
     for hidden_size in hidden_sizes:
         c = layers.Dense(hidden_size, activation='relu')(c)
         c = layers.BatchNormalization()(c)
-        c = layers.Dropout(rate=0.7)(c)
+        c = layers.Dropout(rate=0.3)(c)
     
     c = layers.Dense(output_size, activation='linear')(c)
     prediction = layers.Flatten()(c)

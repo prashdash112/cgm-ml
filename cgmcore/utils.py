@@ -56,7 +56,7 @@ def subsample_pointcloud(pointcloud, target_size):
     # Currently only random subsampling.
     indices = np.arange(0, pointcloud.shape[0])
     indices = np.random.choice(indices, target_size)
-    pointcloud = pointcloud[indices,0:3]
+    pointcloud = pointcloud[indices,0:7]
     return pointcloud
     
 def load_vtk(vtk_path):

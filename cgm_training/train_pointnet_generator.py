@@ -9,6 +9,7 @@ from cgmcore import modelutils
 from cgmcore import utils
 import numpy as np
 from tensorflow.keras import callbacks, optimizers, models, layers
+import tensorflow as tf
 import pprint
 import os
 from cgmcore.preprocesseddatagenerator import get_dataset_path, create_datagenerator_from_parameters
@@ -27,9 +28,9 @@ print("Using dataset path", dataset_path)
 output_root_path = "/whhdata/models"
 
 # Hyperparameters.
-steps_per_epoch = 400
-validation_steps = 40
-epochs = 100
+steps_per_epoch = 100
+validation_steps = 20
+epochs = 500
 batch_size = 16
 random_seed = 667
 
@@ -47,13 +48,20 @@ image_size = 128
 
 # For creating pointclouds.
 dataset_parameters = {}
-dataset_parameters["input_type"] = "pointcloud"
+dataset_parameters["input_type"] = "fusion"
 dataset_parameters["output_targets"] = ["height"]
 dataset_parameters["random_seed"] = random_seed
-dataset_parameters["pointcloud_target_size"] = 10000
+dataset_parameters["pointcloud_target_size"] = 15000
 dataset_parameters["pointcloud_random_rotation"] = False
 dataset_parameters["sequence_length"] = 0
+
 datagenerator_instance = create_datagenerator_from_parameters(dataset_path, dataset_parameters)
+
+
+
+
+
+
 
 # Get the QR-codes.
 qrcodes = datagenerator_instance.qrcodes[:]
@@ -104,8 +112,8 @@ for qrcodes_task in qrcodes_tasks:
 
     # Output path. Ensure its existence.
     output_path = os.path.join(output_root_path, datetime_string)
-    #if os.path.exists(output_path) == False:
-    #    os.makedirs(output_path)
+    if os.path.exists(output_path) == False:
+        os.makedirs(output_path)
     print("Using output path:", output_path)
 
     # Important things.
@@ -116,10 +124,13 @@ for qrcodes_task in qrcodes_tasks:
 
     # Training network.
     def train_pointclouds():
+        data_size = 3
+        if(dataset_parameters["input_type"] == "fusion"):
+            data_size = 7
 
-        input_shape = (dataset_parameters["pointcloud_target_size"], 3)
+        input_shape = (dataset_parameters["pointcloud_target_size"], data_size)
         output_size = 1
-        model = modelutils.create_point_net(input_shape, output_size, hidden_sizes = [512, 256, 128])
+        model = modelutils.create_point_net(input_shape, output_size, hidden_sizes = [512, 256, 128, 64])
         model.summary()
 
         # Compile the model.
@@ -140,10 +151,10 @@ for qrcodes_task in qrcodes_tasks:
                 validation_data=generator_validate,
                 validation_steps=validation_steps,
                 use_multiprocessing=False,
-                workers=0
+                workers=0,
                 #use_multiprocessing=True,
                 #workers=multiprocessing.cpu_count() - 1,
-                #callbacks=[tensorboard_callback]
+                callbacks=[tensorboard_callback]
                 )
         except KeyboardInterrupt:
             print("ALAAAARM")

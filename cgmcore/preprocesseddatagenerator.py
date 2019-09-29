@@ -78,6 +78,8 @@ class PreprocessedDataGenerator(object):
             self.dataset_path = os.path.join(dataset_path, "pcd")
         elif input_type == "pointcloud":
             self.dataset_path = os.path.join(dataset_path, "pcd")
+        elif input_type == "fusion":
+            self.dataset_path = os.path.join(dataset_path, "ply")
         elif input_type == "rgbmap":
             self.dataset_path = os.path.join(dataset_path, "pcd")
         else:
@@ -398,6 +400,11 @@ def get_input(class_self, pointcloud):
     elif class_self.input_type == "voxelgrid":
         voxelgrid = class_self._create_voxelgrid_from_pointcloud(pointcloud)
         x_input = voxelgrid
+
+    # Get a fused point cloud.
+    elif class_self.input_type == "fusion":
+        pointcloud = utils.subsample_pointcloud(pointcloud, class_self.pointcloud_target_size)
+        x_input = pointcloud
  
     # Get a random pointcloud.
     elif class_self.input_type == "pointcloud":
