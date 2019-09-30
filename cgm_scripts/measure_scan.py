@@ -111,6 +111,9 @@ with open("/whhdata/models.json") as json_file:
         # Store measure result.
         model_result.measure_result = Bunch()
         model_result.measure_result.mean = str(np.mean(predictions))
+        model_result.measure_result.min = str(np.min(predictions))
+        model_result.measure_result.max = str(np.max(predictions))
+        model_result.measure_result.std = str(np.std(predictions))
         
         # Store artifact results.
         model_result.artifact_results = []
