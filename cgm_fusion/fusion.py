@@ -63,8 +63,6 @@ def apply_fusion(calibration_file, pcd_file, jpg_file, seg_path):
         raise
         return
 
-
-
     jpg        = cv2.imread(jpg_file, -1)       
     jpg        = cv2.flip( jpg, 0 )
 
@@ -76,8 +74,6 @@ def apply_fusion(calibration_file, pcd_file, jpg_file, seg_path):
     points     = cloud.points.values[:, :3]
     confidence = cloud.points.values[:, 3]
     
-
-
     # get the data for calibration
     intrinsic  = get_intrinsic_matrix()
     ext_d      = get_extrinsic_matrix(4)
