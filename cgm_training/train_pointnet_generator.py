@@ -48,12 +48,13 @@ image_size = 128
 
 # For creating pointclouds.
 dataset_parameters = {}
-dataset_parameters["input_type"] = "fusion"
+dataset_parameters["input_type"] = "pointcloud"
 dataset_parameters["output_targets"] = ["height"]
 dataset_parameters["random_seed"] = random_seed
 dataset_parameters["pointcloud_target_size"] = 15000
 dataset_parameters["pointcloud_random_rotation"] = False
 dataset_parameters["sequence_length"] = 0
+dataset_parameters["pointcloud_subsampling_method"] = "random"
 
 datagenerator_instance = create_datagenerator_from_parameters(dataset_path, dataset_parameters)
 
