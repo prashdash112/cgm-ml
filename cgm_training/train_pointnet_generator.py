@@ -34,20 +34,35 @@ parser.add_argument('-model_path',        action="store",      dest="model_path"
 parser.add_argument('-training_target',   action="store",      dest="training_target",   type=str, help='select WEIGHT or HEIGHT')
 parser.add_argument('-use_multi_gpu',     action="store_true", dest="use_multi_gpu",               help='set the training on multiple gpus')
 
-results = parser.parse_args()
-print ('dataset_path       =', results.dataset_path)
-print ('model_path         =', results.model_path)
-print ('use_multi_gpu      =', results.use_multi_gpu)
-print ('training_target    =', results.training_target)
-print ('model_path         =', results.model_path)
+# unused till now
+parser.add_argument('-epochs',            action="store",      dest="epochs",           default=2000, type=int, help='nr. of epochs for training')
+parser.add_argument('-batch_size',        action="store",      dest="batch_size",       default=16,   type=int, help='batch size of training')
+parser.add_argument('-steps_per_epoch',   action="store",      dest="steps_per_epoch",  default=50,   type=int, help='nr. of steps per epoche')
+parser.add_argument('-validation_steps',  action="store",      dest="validation_steps", default=20,   type=int, help='steps for validation')
+
+
+
+
+config = parser.parse_args()
+print ('dataset_path       =', config.dataset_path)
+print ('model_path         =', config.model_path)
+print ('use_multi_gpu      =', config.use_multi_gpu)
+print ('training_target    =', config.training_target)
+
+# training parameter
+print ('epochs             =', config.epochs)
+print ('batch_size         =', config.batch_size)
+print ('steps_per_epoch    =', config.steps_per_epoch)
+print ('validation_steps   =', config.validation_steps)
+
 
 
 
 # Get the dataset path.
-# if len(results.dataset_path) == 1:
+# if len(config.dataset_path) == 1:
 #     dataset_path = get_dataset_path()
 # else:
-dataset_path = results.dataset_path
+dataset_path = config.dataset_path
 print("Using dataset path", dataset_path)
 
 output_root_path = "/whhdata/models"
@@ -157,9 +172,9 @@ for qrcodes_task in qrcodes_tasks:
 
         input_shape = (dataset_parameters["pointcloud_target_size"], data_size)
         output_size = 1
-        if(results.model_path): 
-            model = tf.keras.models.load_model(results.model_path)
-            print('Continue to train on loaded model from ' + str(results.model_path))
+        if(config.model_path): 
+            model = tf.keras.models.load_model(config.model_path)
+            print('Continue to train on loaded model from ' + str(config.model_path))
         else:
             model = modelutils.create_point_net(input_shape, output_size, hidden_sizes = [512, 256, 128, 64])
             print('Creating new model')
@@ -171,7 +186,7 @@ for qrcodes_task in qrcodes_tasks:
         optimizer = optimizers.RMSprop(learning_rate=0.0001)
         # optimizer = optimizers.Adam(learning_rate=0.001, beta_1=0.9, beta_2=0.999, amsgrad=False)
 
-        if(results.use_multi_gpu):
+        if(config.use_multi_gpu):
             model = tf.keras.utils.multi_gpu_model(model, gpus=2)
         
         model.compile(
