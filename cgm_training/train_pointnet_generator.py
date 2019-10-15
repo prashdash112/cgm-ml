@@ -3,6 +3,10 @@ This script trains PointNet.
 '''
 import sys
 sys.path.insert(0, "..")
+
+
+
+
 import warnings
 warnings.filterwarnings("ignore")
 from cgmcore import modelutils
@@ -18,21 +22,45 @@ import qrcodes
 from cgmcore.utils import create_training_tasks
 import multiprocessing
 
+tf.get_logger().setLevel('WARNING')
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # or any {'0', '1', '2'}
+
+
+# parse the arguments
+import argparse
+parser = argparse.ArgumentParser(description='Training on gpu')
+parser.add_argument('-dataset_path',      action="store",      dest="dataset_path",      type=str, help='path to dataset')
+parser.add_argument('-model_path',        action="store",      dest="model_path",        type=str, help='set path to model for retraining')
+parser.add_argument('-training_target',   action="store",      dest="training_target",   type=str, help='select WEIGHT or HEIGHT')
+parser.add_argument('-use_multi_gpu',     action="store_true", dest="use_multi_gpu",               help='set the training on multiple gpus')
+
+results = parser.parse_args()
+print ('dataset_path       =', results.dataset_path)
+print ('model_path         =', results.model_path)
+print ('use_multi_gpu      =', results.use_multi_gpu)
+print ('training_target    =', results.training_target)
+print ('model_path         =', results.model_path)
+
+
+
 # Get the dataset path.
-if len(sys.argv) == 1:
-    dataset_path = get_dataset_path()
-else:
-    dataset_path = sys.argv[1]
+# if len(results.dataset_path) == 1:
+#     dataset_path = get_dataset_path()
+# else:
+dataset_path = results.dataset_path
 print("Using dataset path", dataset_path)
 
 output_root_path = "/whhdata/models"
 
 # Hyperparameters.
-steps_per_epoch = 100
+steps_per_epoch = 50
 validation_steps = 20
-epochs = 500
+epochs = 2000
 batch_size = 16
 random_seed = 667
+use_early_stoping = False
+early_stopping_threshold = 0.0001 
+
 
 if len(utils.get_available_gpus()) == 0:
     output_root_path = "."
@@ -44,14 +72,12 @@ if len(utils.get_available_gpus()) == 0:
     print("WARNING! No GPU available!")
 
     
-image_size = 128
-
 # For creating pointclouds.
 dataset_parameters = {}
-dataset_parameters["input_type"] = "pointcloud"
-dataset_parameters["output_targets"] = ["height"]
+dataset_parameters["input_type"] = "fusion"
+dataset_parameters["output_targets"] = ["weight"]
 dataset_parameters["random_seed"] = random_seed
-dataset_parameters["pointcloud_target_size"] = 15000
+dataset_parameters["pointcloud_target_size"] = 10000
 dataset_parameters["pointcloud_random_rotation"] = False
 dataset_parameters["sequence_length"] = 0
 dataset_parameters["pointcloud_subsampling_method"] = "random"
@@ -73,7 +99,7 @@ qrcodes_tasks = create_training_tasks(qrcodes, subset_sizes)
 for qrcodes_task in qrcodes_tasks:
     
     qrcodes_train, qrcodes_validate = qrcodes_task
-    print("Using {} QR-codes for training.".format(len(qrcodes_train)))
+    print("Using {} QR-codes for training.".format(len(qrcodes_train))) 
     print("Using {} QR-codes for validation.".format(len(qrcodes_validate)))
 
     # Create python generators.
@@ -120,7 +146,7 @@ for qrcodes_task in qrcodes_tasks:
     # Important things.
     pp = pprint.PrettyPrinter(indent=4)
     log_dir = os.path.join("/whhdata/models", "logs", datetime_string)
-    tensorboard_callback = callbacks.TensorBoard(log_dir=log_dir)
+#    tensorboard_callback = callbacks.TensorBoard(log_dir=log_dir)
     histories = {}
 
     # Training network.
@@ -131,12 +157,23 @@ for qrcodes_task in qrcodes_tasks:
 
         input_shape = (dataset_parameters["pointcloud_target_size"], data_size)
         output_size = 1
-        model = modelutils.create_point_net(input_shape, output_size, hidden_sizes = [512, 256, 128, 64])
+        if(results.model_path): 
+            model = tf.keras.models.load_model(results.model_path)
+            print('Continue to train on loaded model from ' + str(results.model_path))
+        else:
+            model = modelutils.create_point_net(input_shape, output_size, hidden_sizes = [512, 256, 128, 64])
+            print('Creating new model')
+
         model.summary()
 
         # Compile the model.
         #optimizer = optimizers.RMSprop(lr=0.0001)
-        optimizer = optimizers.RMSprop()
+        optimizer = optimizers.RMSprop(learning_rate=0.0001)
+        # optimizer = optimizers.Adam(learning_rate=0.001, beta_1=0.9, beta_2=0.999, amsgrad=False)
+
+        if(results.use_multi_gpu):
+            model = tf.keras.utils.multi_gpu_model(model, gpus=2)
+        
         model.compile(
                 optimizer=optimizer,
                 loss="mse",
@@ -144,6 +181,34 @@ for qrcodes_task in qrcodes_tasks:
             )
 
         try:
+            tensorboard_callback = tf.keras.callbacks.TensorBoard(
+                                log_dir=log_dir, 
+                                histogram_freq=0, 
+                                batch_size=32, 
+                                write_graph=True, 
+                                write_grads=False, 
+                                write_images=True, 
+                                embeddings_freq=0, 
+                                embeddings_layer_names=None, 
+                                embeddings_metadata=None, 
+                                embeddings_data=None, 
+                                update_freq='epoch')
+
+
+            early_stopping = tf.keras.callbacks.EarlyStopping(
+                                monitor='val_loss',
+                                min_delta=early_stopping_threshold,
+                                patience=5,
+                                verbose=1)
+
+            val_loss_callback = tf.keras.callbacks.ModelCheckpoint(output_path + "/" + datetime_string + "best_weights.{epoch:5d}-{val_loss:.2f}.hdf5", 
+                                monitor='val_loss', 
+                                verbose=0, 
+                                save_best_only=True, 
+                                save_weights_only=False, 
+                                mode='auto', 
+                                save_freq='epoch')
+
             # Train the model.
             history = model.fit_generator(
                 generator_train,
@@ -153,12 +218,12 @@ for qrcodes_task in qrcodes_tasks:
                 validation_steps=validation_steps,
                 use_multiprocessing=False,
                 workers=0,
-                #use_multiprocessing=True,
-                #workers=multiprocessing.cpu_count() - 1,
-                callbacks=[tensorboard_callback]
+                callbacks=[tensorboard_callback, val_loss_callback]
                 )
         except KeyboardInterrupt:
             print("ALAAAARM")
+            histories["pointnet"] = history
+            modelutils.save_model_and_history(output_path, datetime_string, model, history, training_details, "pointnet")
             datagenerator_instance.finish()
             
 
