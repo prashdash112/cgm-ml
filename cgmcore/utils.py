@@ -39,6 +39,7 @@ from tqdm import tqdm
 import traceback
 from PIL import Image
 import math
+import cv2
 
 
 def load_pcd_as_ndarray(pcd_path):
@@ -567,13 +568,15 @@ def multiprocess(
 
 
 # Render a subsample of the artifacts.
-def render_artifacts_as_gallery(artifacts, targets=None, qr_code=None, timestamp=None, num_columns=10, target_size=(1920 // 4, 1080 // 4), image_path=None):
+def render_artifacts_as_gallery(artifacts, targets=None, qr_code=None, timestamp=None, num_columns=10, target_size=(1920 // 4, 1080 // 4), image_path=None, use_plt=True):
 
-    # Render results image.
+  # Render results image.
     result_images = []
     row_images = []
     for artifact in artifacts:
-        path = artifact[0].replace("whhdata", "localssd")
+        if isinstance(artifact, str) == False:
+            artifact = artifact[0]
+        path = artifact.replace("whhdata", "localssd")
         img = Image.open(path)
         img = img.resize(target_size)
         img = np.array(img)
@@ -602,14 +605,18 @@ def render_artifacts_as_gallery(artifacts, targets=None, qr_code=None, timestamp
         title_string += " Targets: " + ", ".join([str(target) for target in targets])
 
     # Render with plt.
-    # TODO render target
-    plt.figure(figsize=(20, int(20 * result_image.shape[0] / result_image.shape[1])))
-    plt.imshow(result_image)
-    plt.axis("off")
-    plt.title(title_string)
+    if use_plt == True:
+        plt.figure(figsize=(20, int(20 * result_image.shape[0] / result_image.shape[1])))
+        plt.imshow(result_image)
+        plt.axis("off")
+        plt.title(title_string)
 
-    if image_path == None:
-        plt.show()
+        if image_path == None:
+            plt.show()
+        else:
+            plt.savefig(image_path)
+        plt.close()
+
     else:
-        plt.savefig(image_path)
-    plt.close()
+        # Write image to hard drive.
+        cv2.imwrite(image_path, result_image[:,:,::-1])
