@@ -28,7 +28,7 @@ try:
     import vtk
 except Exception as e:
     pass
-    #print("WARNING! VTK not available. This might limit the functionality.") 
+    #print("WARNING! VTK not available. This might limit the functionality.")
 from pyntcloud import PyntCloud
 import pickle
 import random
@@ -41,7 +41,7 @@ from PIL import Image
 import math
 import cv2
 
-    
+
 def load_pcd_as_ndarray(pcd_path):
     """
     Loads a PCD-file. Yields a numpy-array.
@@ -54,46 +54,39 @@ def load_pcd_as_ndarray(pcd_path):
 def subsample_pointcloud(pointcloud, target_size, subsampling_method="random", dimensions=[0, 1, 2]):
     """
     Yields a subsampled pointcloud.
-    
+
     These subsamplinge modes are available:
     - "random": Yields a random subset. Multiple occurrences of a single point are possible.
     - "first": Yields the first n points
     - "sequential_skip": Attempts to keep the order of the points intact, might skip some elements if the pointcloud is too big. E.g. every second point is skipped.
-    
+
     Note: All methods ensure that the target_size is met. If necessary zeroes are appended.
     """
-    
+
     # Check if the requested subsampling method is all right.
     possible_subsampling_methods = ["random", "first", "sequential_skip"]
     assert subsampling_method in possible_subsampling_methods, "Subsampling method {} not in {}".format(subsampling_method, possible_subsampling_methods)
-    
-    
+
     # Random subsampling.
     if subsampling_method == "random":
         indices = np.arange(0, pointcloud.shape[0])
         indices = np.random.choice(indices, target_size)
-        result = pointcloud[indices,0:3]
-    
+        result = pointcloud[indices]
+
     elif subsampling_method == "first":
         result = np.zeros((target_size, pointcloud.shape[1]), dtype="float32")
         result[:len(pointcloud),:] = pointcloud[:target_size]
-        
+
     elif subsampling_method == "sequential_skip":
-        #print("Original", len(pointcloud), "Target", target_size)
         result = np.zeros((target_size, pointcloud.shape[1]), dtype="float32")
         skip = max(1, round(len(pointcloud) / target_size))
-        #print("Skip", skip)
         pointcloud_skipped = pointcloud[::skip,:]
-        #print("After Skip", len(pointcloud_skipped))
-        
         result = np.zeros((target_size, pointcloud.shape[1]), dtype="float32")
         result[:len(pointcloud_skipped),:] = pointcloud_skipped[:target_size]
-        #print("Result", len(result))
-        #print("")
 
     return result[:,dimensions]
-    
-    
+
+
 def load_vtk(vtk_path):
     """
     Loads a VTK-file. Yields a numpy-array.
@@ -263,7 +256,7 @@ def pointcloud_to_rgb_map(original_pointcloud, target_width=512, target_height=5
     Maps a pointcloud to a RGB-image. Stores height, density and intensity as separate channels.
     '''
     if axis=="horizontal":
-        
+
         # Transform to pixel-space.
         scale = np.array([target_width / scale_factor, target_width / scale_factor, target_width / scale_factor, target_width / scale_factor]) # TODO is this okay?
         translate = np.array([target_width / 2, target_height / 2, 0.0, 0.0])
@@ -271,9 +264,9 @@ def pointcloud_to_rgb_map(original_pointcloud, target_width=512, target_height=5
 
         # Crop the pointcloud.
         crop_mask = np.where(
-            (pointcloud[:, 0] >= 0) & 
-            (pointcloud[:, 0] < target_width) & 
-            (pointcloud[:, 1] >= 0) & 
+            (pointcloud[:, 0] >= 0) &
+            (pointcloud[:, 0] < target_width) &
+            (pointcloud[:, 1] >= 0) &
             (pointcloud[:, 1] < target_height))
         pointcloud = pointcloud[crop_mask]
 
@@ -302,30 +295,30 @@ def pointcloud_to_rgb_map(original_pointcloud, target_width=512, target_height=5
 
         # Compose the RGB-map.
         rgb_map = np.zeros((target_width, target_height, 3))
-        rgb_map[:,:,0] = height_map 
+        rgb_map[:,:,0] = height_map
         rgb_map[:,:,1] = density_map
         rgb_map[:,:,2] = intensity_map
 
         return rgb_map
-    
+
     elif axis=="vertical":
-        
+
         # Transform to pixel-space.
-        scale = np.array([target_width / scale_factor, target_width / scale_factor, target_width / scale_factor, target_width / scale_factor]) 
+        scale = np.array([target_width / scale_factor, target_width / scale_factor, target_width / scale_factor, target_width / scale_factor])
         # TODO is this okay?
         translate = np.array([target_height / 2, target_width / 2, -target_width/3, 0.0])
         pointcloud = original_pointcloud * scale + translate
 
         # Crop the pointcloud.
         crop_mask = np.where(
-            (pointcloud[:, 1] >= 0) & 
+            (pointcloud[:, 1] >= 0) &
             (pointcloud[:, 1] < target_width)
-            & 
-            (pointcloud[:, 2] >= 0) & 
+            &
+            (pointcloud[:, 2] >= 0) &
             (pointcloud[:, 2] < target_height)
         )
         pointcloud = pointcloud[crop_mask]
-        
+
         # Get indices and counts.
         _, indices, counts = np.unique(pointcloud[:,[1, 2]], axis=0, return_index=True, return_counts = True)
 
@@ -351,12 +344,12 @@ def pointcloud_to_rgb_map(original_pointcloud, target_width=512, target_height=5
 
         # Compose the RGB-map.
         rgb_map = np.zeros((target_width, target_height, 3))
-        rgb_map[:,:,0] = height_map 
+        rgb_map[:,:,0] = height_map
         rgb_map[:,:,1] = density_map
         rgb_map[:,:,2] = intensity_map
 
         return rgb_map
-    
+
     else:
         raise Exception("Unknown axis: " + axis)
 
@@ -364,7 +357,7 @@ def show_rgb_map(rgb_map):
     '''
     Renders a RGB-map.
     '''
-    
+
     plt.figure(figsize=(10, 10))
     plt.subplots_adjust(wspace=0.1, hspace=0.1)
     plt.subplot(2, 2, 1)
@@ -372,7 +365,7 @@ def show_rgb_map(rgb_map):
     plt.subplot(2, 2, 2)
     show_rgb_map_channel(rgb_map[::-1,:,0], "Height", cmap="gray")
     plt.subplot(2, 2, 3)
-    show_rgb_map_channel(rgb_map[::-1,:,1], "Density", cmap="gray")    
+    show_rgb_map_channel(rgb_map[::-1,:,1], "Density", cmap="gray")
     plt.subplot(2, 2, 4)
     show_rgb_map_channel(rgb_map[::-1,:,2], "Intensity", cmap="gray")
     plt.show()
@@ -382,12 +375,12 @@ def show_rgb_map_channel(data, title, cmap=None):
     '''
     Renders a channel of a RGB-map.
     '''
-    
+
     fig = plt.imshow(data, cmap=cmap)
     fig.axes.get_xaxis().set_visible(False)
     fig.axes.get_yaxis().set_visible(False)
     plt.title(title)
-    
+
 def find_timestamps_of_trained_models(root_path):
     '''
     Extracts the timestamps. Different timestamps will represent different models/trainings.
@@ -423,7 +416,7 @@ def plot_date_times(date_times, all_history_paths, start_index, end_index = 1000
     plt.legend()
     plt.show()
     plt.close()
-    
+
 def get_mean_error(date_times, all_history_paths, start_index, end_index = 100090, key_suffix=None):
     for date_time in date_times:
 
@@ -443,7 +436,7 @@ def get_mean_error(date_times, all_history_paths, start_index, end_index = 10009
                     avg_error = sum(lst) / len(lst)
                     print("Avg " + key + " " + split[2] + " " + date_time + " between epoch " + str(start_index) + " and " + str(end_index) + " = " + str(avg_error))
 
-    
+
 def find_all_history_paths(root_path):
     all_paths = glob.glob(os.path.join(root_path, "*.p"))
     history_paths = [path for path in all_paths if "history" in path]
@@ -473,11 +466,11 @@ def get_available_gpus():
 
 
 def multiprocess(
-    entries, 
-    process_method, 
-    number_of_workers=None, 
-    process_individial_entries=True, 
-    pass_process_index=False, 
+    entries,
+    process_method,
+    number_of_workers=None,
+    process_individial_entries=True,
+    pass_process_index=False,
     progressbar=False,
     disable_gpu=False
 ):
@@ -498,10 +491,10 @@ def multiprocess(
 
     # This method is starting point for multiprocessing
     def process_entries(entry_sublist, process_index):
-        
+
         if disable_gpu == True:
-            os.environ["CUDA_VISIBLE_DEVICES"]="-1"  
-        
+            os.environ["CUDA_VISIBLE_DEVICES"]="-1"
+
         try:
             # Process individually.
             if process_individial_entries:
@@ -527,22 +520,22 @@ def multiprocess(
                 pickle_path = str(uuid.uuid4()) + ".pickletemp"
                 pickle.dump(result, open(pickle_path, "wb"))
                 output.put(pickle_path)
-        
+
         # Handle keyboard interrupt.
         except KeyboardInterrupt:
             output.put("Keyboard interrupt.")
-            
+
         # TODO remove later
         except Exception as e:
             print("\n\n\n\n\n\n\n\n\n\n\n")
             print(e)
             traceback.print_exc()
-            
-            
+
+
 
     # Setup a list of processes that we want to run
     processes = [multiprocessing.Process(target=process_entries, args=(entry_sublist, process_index)) for process_index, entry_sublist in enumerate(entry_sublists)]
-    
+
     # Run processes
     for process in processes:
         process.start()
@@ -562,22 +555,22 @@ def multiprocess(
     results = []
     for _ in processes:
         result = output.get()
-        
+
         # Results are in a pickle file.
         if result.endswith(".pickletemp"):
             results.append(pickle.load(open(result, "rb")))
             os.remove(result)
-        
+
         # Just plain results.
         else:
             results.append(result)
-    return results  
-      
-    
+    return results
+
+
 # Render a subsample of the artifacts.
 def render_artifacts_as_gallery(artifacts, targets=None, qr_code=None, timestamp=None, num_columns=10, target_size=(1920 // 4, 1080 // 4), image_path=None, use_plt=True):
-    
-    # Render results image.
+
+  # Render results image.
     result_images = []
     row_images = []
     for artifact in artifacts:
@@ -601,7 +594,7 @@ def render_artifacts_as_gallery(artifacts, targets=None, qr_code=None, timestamp
         row_image = np.hstack(row_images)
         result_images.append(row_image)
     result_image = np.vstack(result_images)
-    
+
     # Create title string.
     title_string = ""
     if qr_code is not None:
@@ -610,7 +603,7 @@ def render_artifacts_as_gallery(artifacts, targets=None, qr_code=None, timestamp
         title_string += "Timestamp: " + str(timestamp)
     if targets is not None:
         title_string += " Targets: " + ", ".join([str(target) for target in targets])
-    
+
     # Render with plt.
     if use_plt == True:
         plt.figure(figsize=(20, int(20 * result_image.shape[0] / result_image.shape[1])))
@@ -623,6 +616,7 @@ def render_artifacts_as_gallery(artifacts, targets=None, qr_code=None, timestamp
         else:
             plt.savefig(image_path)
         plt.close()
+
     else:
         # Write image to hard drive.
         cv2.imwrite(image_path, result_image[:,:,::-1])
