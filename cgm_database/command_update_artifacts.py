@@ -147,7 +147,7 @@ def execute_command_update_artifacts(update_jpgs=False, update_pcds=False, updat
         process_individial_entries=False, 
         pass_process_index=True,
         progressbar=False, 
-        number_of_workers=None
+        number_of_workers=6
     )
     
     if results == None:

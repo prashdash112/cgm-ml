@@ -39,13 +39,12 @@ import json
 import pprint
 import argparse
 import shutil
+import logging
 
+
+# Set tensorflow log level.
 tf.get_logger().setLevel('WARNING')
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # or any {'0', '1', '2'}
-
-# TODOS 
-# ARGS: multigpu, resume, config file
-# create a real logger
 
 def main():
 
@@ -76,13 +75,26 @@ def main():
     config = json.load(open(arguments.config_file, "r"))
     config = Bunch({ key: Bunch(value) for key, value in config.items()})
 
+    # Create logger.
+    logger = logging.getLogger("train.py")
+    logger.setLevel(logging.DEBUG)
+    file_handler = logging.FileHandler(os.path.join(config.global_parameters.output_path, "train.log"))
+    file_handler.setLevel(logging.DEBUG)
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO)
+    formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    file_handler.setFormatter(formatter)
+    console_handler.setFormatter(formatter)
+    logger.addHandler(file_handler)
+    logger.addHandler(console_handler)
+    logger.info("Starting training job...")
+
     # Prepare results.
     results = Bunch()
 
     # Check if there is a GPU.
     if len(utils.get_available_gpus()) == 0:
-        # TODO logger
-        print("WARNING! No GPU available!")
+        logger.warning("WARNING! No GPU available!")
 
     # Create datagenerator.
     datagenerator_instance = create_datagenerator_from_parameters(
@@ -116,7 +128,7 @@ def main():
     # Output path. Ensure its existence.
     if os.path.exists(config.global_parameters.output_path) == False:
         os.makedirs(config.global_parameters.output_path)
-    print("Using output path:", config.global_parameters.output_path)
+    logger.info("Using output path:", config.global_parameters.output_path)
 
     # Copy config file.
     shutil.copy2(arguments.config_file, config.global_parameters.output_path)
@@ -130,10 +142,10 @@ def main():
     # Resume training.
     if arguments.resume_training == True:
         if os.path.exists(model_path) == False:
-            print("Model does not exist. Cannot resume!")
+            logger.error("Model does not exist. Cannot resume!")
             exit(0)
         model = tf.keras.models.load_model(model_path)
-        print("Loaded model from {}.".format(config.model_path))
+        logger.info("Loaded model from {}.".format(config.model_path))
     
     # Start from scratch.
     else:
@@ -142,7 +154,7 @@ def main():
             config.model_parameters.output_size, 
             config.model_parameters.hidden_sizes
         )
-        print("Created new model.")
+        logger.info("Created new model.")
     model.summary()
     
     # Compile model.
@@ -166,6 +178,7 @@ def main():
     )
 
     # Do training on multiple GPUs.
+    original_model = model
     if arguments.use_multi_gpu == True:
         model = tf.keras.utils.multi_gpu_model(model, gpus=2)
     
@@ -224,15 +237,15 @@ def main():
             callbacks=callbacks
             )
     except KeyboardInterrupt:
-        print("Gracefully stopping training...")
+        logger.info("Gracefully stopping training...")
         datagenerator_instance.finish()
         results.interrupted_by_user = True
            
     # Training ended.
     results.training_end = utils.get_datetime_string()
 
-    # Save the model.
-    #TODO model.save(model_path)
+    # Save the model. Make sure that it is the original model.
+    original_model.save(model_path)
     
     # Store the history.
     results.model_history = model.history.history
@@ -245,28 +258,3 @@ def main():
     
 if __name__ == "__main__":
     main()
-
-
-exit(0)
-
-
-
-
-
-# TODO recycle this!
-
-# parse the arguments
-import argparse
-parser = argparse.ArgumentParser(description='Training on gpu')
-parser.add_argument('-dataset_path',      action="store",      dest="dataset_path",      type=str, help='path to dataset')
-parser.add_argument('-model_path',        action="store",      dest="model_path",        type=str, help='set path to model for retraining')
-parser.add_argument('-training_target',   action="store",      dest="training_target",   type=str, help='select WEIGHT or HEIGHT')
-parser.add_argument('-use_multi_gpu',     action="store_true", dest="use_multi_gpu",               help='set the training on multiple gpus')
-
-# unused till now
-parser.add_argument('-epochs',            action="store",      dest="epochs",           default=2000, type=int, help='nr. of epochs for training')
-parser.add_argument('-batch_size',        action="store",      dest="batch_size",       default=16,   type=int, help='batch size of training')
-parser.add_argument('-steps_per_epoch',   action="store",      dest="steps_per_epoch",  default=50,   type=int, help='nr. of steps per epoche')
-parser.add_argument('-validation_steps',  action="store",      dest="validation_steps", default=20,   type=int, help='steps for validation')
-
-
