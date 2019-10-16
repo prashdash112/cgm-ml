@@ -218,6 +218,7 @@ def create_point_net(input_shape, output_size, hidden_sizes = [512, 256]):
 
     # forward net
 #    g = layers.Lambda(mat_mul, arguments={'B': input_T})(input_points)
+    g = layers.dot([input_points, input_T], axes=-1, normalize=True)
     g = layers.Convolution1D(64, 1, input_shape=input_shape, activation='relu')(input_points)
     g = layers.BatchNormalization()(g)
     g = layers.Convolution1D(64, 1, input_shape=input_shape, activation='relu')(g)
@@ -239,7 +240,8 @@ def create_point_net(input_shape, output_size, hidden_sizes = [512, 256]):
     feature_T = layers.Reshape((64, 64))(f)
 
     # forward net
-    g = layers.Lambda(mat_mul, arguments={'B': feature_T})(g)
+    #g = layers.Lambda(mat_mul, arguments={'B': feature_T})(g)
+    g = layers.dot([g, feature_T], axes=-1, normalize=True)
     g = layers.Convolution1D(64, 1, activation='relu')(g)
     g = layers.BatchNormalization()(g)
     g = layers.Convolution1D(128, 1, activation='relu')(g)

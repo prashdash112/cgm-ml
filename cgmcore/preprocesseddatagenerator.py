@@ -406,7 +406,7 @@ def get_input(class_self, pointcloud):
 
     # Get a fused point cloud.
     elif class_self.input_type == "fusion":
-        pointcloud = utils.subsample_pointcloud(pointcloud, class_self.pointcloud_target_size, list(range(7)))
+        pointcloud = utils.subsample_pointcloud(pointcloud, class_self.pointcloud_target_size, class_self.pointcloud_subsampling_method, list(range(7)))
         x_input = pointcloud
 
     # Get a random pointcloud.
