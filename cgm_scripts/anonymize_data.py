@@ -53,7 +53,7 @@ def main():
         print("")
         print("Usage: python anonymize_data.py MODE INPUT OUTPUT")
         print("  MODE: file|scan|all")
-        print("  INPUT: Path to specific file, or a specific scan, or a all scans.")
+        print("  INPUT: Path to specific file, or a specific scan, or all scans.")
         print("  OUTPUT: Path for the anonymized data.")
         print("")
         print("Examples:")
@@ -311,32 +311,7 @@ def should_image_be_used(source_path, number_of_faces):
     assert False, "Should not happen! " + source_path
 
     
-def create_galleries(dirpath, filenames):
-    dirpath_split = dirpath.split("/")
-    timestamp = dirpath_split[-2]
-    qrcode = dirpath_split[-4]
-    
-    # Filter files by poses. Create one gallery per qrcode, per timestamp, and per pose.
-    infixes = ["_100_", "_200_", "_104_", "_101_", "_201_", "_107_", "_102_", "_202_", "_110_"]
-    for infix in infixes:
-        filtered_filenames = [os.path.join(dirpath, filename) for filename in filenames if infix in filename]
-        if len(filtered_filenames) == 0:
-            continue
 
-        # Create the gallery.
-        gallery_file_name = "{}_{}_{}.jpg".format(qrcode, timestamp, infix.replace("_", "")) 
-        gallery_file_path = os.path.join(galleries_path_root, gallery_file_name)
-        utils.render_artifacts_as_gallery(
-            filtered_filenames,
-            targets=None,
-            qr_code=qrcode,
-            timestamp=timestamp, 
-            num_columns=10, 
-            target_size=(1920 // 8, 1080 // 8), 
-            image_path=gallery_file_path,
-            use_plt=False
-        )
-    
     
 if __name__ == '__main__':
     main()
