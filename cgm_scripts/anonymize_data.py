@@ -28,11 +28,23 @@ import face_recognition
 import glob
 from tqdm import tqdm
 import random
+import logging
 
+# Create logger.
+logger = logging.getLogger("anonymize_data.py")
+logger.setLevel(logging.DEBUG)
+file_handler = logging.FileHandler("anonymize_data.log")
+file_handler.setLevel(logging.DEBUG)
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.INFO)
+formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+file_handler.setFormatter(formatter)
+console_handler.setFormatter(formatter)
+logger.addHandler(file_handler)
+logger.addHandler(console_handler)
 
 # Modes the program can run in.
 modes = ["file", "scan", "all"]
-
 
 def main():
     
@@ -52,7 +64,8 @@ def main():
     # Process the command line arguments.
     mode = sys.argv[1]
     if mode not in modes:
-        raise Exception("Invalid mode {}".format(mode))
+        logger.error("Invalid mode {}".format(mode))
+        exit(0)
     input_path = sys.argv[2]
     output_path = sys.argv[3]
 
@@ -63,34 +76,30 @@ def main():
     # Process a scan.
     elif mode == "scan":
         results = process_scan(input_path, output_path)
+        for result in results:
+            logger.info(" ".join(result))
     
     # Process a single file.
     elif mode == "file":
         result = process_file(input_path, output_path)
         results = [result]
-        
-    for result in results:
-        print(result)
+        for result in results:
+            logger.info(" ".join(result))
             
             
         
 def process_all(all_path, output_path):
     
     # Getting the paths of the qr-codes.
-    print("Gathering all qr codes...")
+    logger.info("Gathering all qr codes...")
     qrcode_paths = glob.glob(os.path.join(all_path, "*"))
     qrcode_paths = [path for path in qrcode_paths if os.path.isdir(path) == True]
     qrcode_paths = [path for path in qrcode_paths if os.path.exists(os.path.join(path, "measurements"))]
     qrcode_paths = sorted(qrcode_paths)
-    #qrcode_paths = [random.choice(qrcode_paths)]
-    #print("ATTENTION! Currently running only on one QR-code")
     
     # Do a quality check on the qr code paths.
-    #for qrcode_path in qrcode_paths:
-    #    print(qrcode_path)
     if len(qrcode_paths) == 0:
-        print("No measurements found at \"{}\"!".format(all_path))
-    
+        logger.info("No measurements found at \"{}\"!".format(all_path))
     
     # This method is called in multiple processes.
     def process_qrcode_path(qrcode_path):
@@ -102,7 +111,7 @@ def process_all(all_path, output_path):
             results = process_scan(scan_path, output_path)
             #results_all.extend(results)
             for result in results:
-                print(result)
+                logger.info(" ".join(result))
         
         return results_all
     
@@ -115,10 +124,6 @@ def process_all(all_path, output_path):
         number_of_workers=10,
         disable_gpu=True
     )
-    #results_all = []
-    #for result in results:
-    #    results_all.extend(result)
-    #return results_all
     return []
 
     
@@ -129,12 +134,14 @@ def process_scan(scan_path, output_path, show_progress=True):
     
     # Check if we have a folder.
     if os.path.isdir(scan_path) == False:
-        raise Exception("Must provide a folder!") 
+        logger.error("Must provide a folder!") 
+        raise Exception()
     
     # See if we are really in a scan.
     paths = glob.glob(os.path.join(scan_path, "*"))
     if os.path.join(scan_path, "rgb") not in paths and os.path.join(scan_path, "pc") not in paths:
-        raise Exception("Direct subfolders rgb or pc not found in input folder!")
+        logger.error("Direct subfolders rgb or pc not found in input folder!")
+        raise Exception()
 
     # Walk the scan path.    
     walker = os.walk(scan_path)
@@ -163,18 +170,22 @@ def process_file(file_path, output_path):
     
     # Must be a file.
     if os.path.isfile(file_path) == False:
-        raise Exception("Must provide a file!")
+        logger.error("Must provide a file!")
+        raise Exception()
     
     # Must be an image.
     if (file_path.endswith("jpg") or file_path.endswith("png") or file_path.endswith("pcd") or file_path.endswith("ply") or file_path.endswith("vtk")) == False:
-        raise Exception("File extension of \"{}\" is not valid! Allowed: jpg/png/pcd/ply/vtk".format(file_path))
+        logger.error("File extension of \"{}\" is not valid! Allowed: jpg/png/pcd/ply/vtk".format(file_path))
+        raise Exception()
             
     # Check if the folder structure is correct.        
     file_path_split = file_path.split("/")
     if file_path_split[-6] != "qrcode":
-        raise Exception("Expected \"qrcode\" in path, got \"{}\"".format(file_path_split[-6]))
+        logger.error("Expected \"qrcode\" in path, got \"{}\"".format(file_path_split[-6]))
+        raise Exception()
     if file_path_split[-2] != "rgb" and file_path_split[-2] != "pc":
-        raise Exception("Expected \"rgb\" or \"pc\" in path, got \"{}\"".format(file_path_split[-2]))
+        logger.error("Expected \"rgb\" or \"pc\" in path, got \"{}\"".format(file_path_split[-2]))
+        raise Exception()
       
     # Make sure the output folder exists.
     file_output_folder = os.path.join(output_path, *file_path_split[-5:-1])
@@ -196,87 +207,6 @@ def process_file(file_path, output_path):
         result = blur_faces_in_file(file_path, file_output_path)
         return (file_path, result)
     
-    
-    
-        
-def old_main():
-    '''
-    Main runner code.
-    - Copy data while maintaing the original directory structure
-    - Remove personal info.
-    '''
-    
-    # Make sure that destination folder exists.
-    if os.path.exists(output_path_root) == False:
-        os.makedirs(output_path_root)
-        
-    # Make sure that galleries folder exists.
-    if os.path.exists(galleries_path_root) == False:
-        os.makedirs(galleries_path_root)
-    
-    print("Getting data for anonymization. This might take a while...")
-    # TODO remove this
-    #qrcode_paths = glob.glob(os.path.join(input_path, "*"))
-    #qrcode_paths = [path for path in paths if os.path.isdir(path) == True]
-    qrcode_paths = ["/whhdata/qrcode/RJ_WHH_1134", "/whhdata/qrcode/MP_WHH_2438", "/whhdata/qrcode/RJ_WHH_2446", "/whhdata/qrcode/RJ_WHH_1350", "/whhdata/qrcode/MH_WHH_0323",
-"/whhdata/qrcode/RJ_WHH_0339", "/whhdata/qrcode/RJ_WHH_0005", "/whhdata/qrcode/MP_WHH_2080"]
-    #qrcode_paths = qrcode_paths[0:1]
-    
-    # This method is called in multiple processes.
-    def process_qrcode_path(qrcode_path):
-        processed_images_count = 0
-        skipped_images_count = 0
-        
-        # Anonymize individual files.
-        for dirpath, dirnames, filenames in os.walk(qrcode_path):
-            qrcode_target_path = os.path.join(output_path_root, dirpath[len(input_path) + 1:])
-            
-            # Go through all the files in the folder.
-            for filename in filenames:
-                # Ignore non-measurement files and non images.
-                if "measurements" in dirpath and (filename.endswith(".jpg") or filename.endswith(".png")):
-                    source_path = os.path.join(dirpath, filename)
-                    target_folder = os.path.join(output_path_root, dirpath[len(input_path) + 1:])
-                    if os.path.exists(target_folder) == False:
-                        os.makedirs(target_folder)
-                    target_path = os.path.join(qrcode_target_path, filename)
-                    has_been_processed = blur_faces_in_file(source_path, target_path)
-                    
-                    if has_been_processed == True:
-                        processed_images_count += 1
-                    else:
-                        skipped_images_count += 1
-            
-        # Create thumbnail galleries.
-        for dirpath, dirnames, filenames in os.walk(output_path_root):
-            if dirpath.endswith("rgb") == False:
-                continue
-            qrcode_target_path = os.path.join(output_path_root, dirpath[len(input_path) + 1:])
-            create_galleries(dirpath, filenames) 
-                        
-        return (processed_images_count, skipped_images_count)
-    
-    # Run this in multiprocess mode.
-    results = utils.multiprocess(
-        qrcode_paths, 
-        process_method=process_qrcode_path, 
-        process_individial_entries=True, 
-        progressbar=True,
-        number_of_workers=1,
-        disable_gpu=True
-    )
-    
-    # Count how many files have been processed.
-    processed_images_count_total = 0
-    skipped_images_count_total = 0
-    for processed_images_count, skipped_images_count in results:
-        processed_images_count_total += processed_images_count
-        skipped_images_count_total += skipped_images_count_total
-    print("Anonymized {}, skipped {}".format(processed_images_count_total, skipped_images_count_total)) 
-    # TODO write statistics to log.
-    
-    print(results)
- 
 
 def blur_faces_in_file(source_path, target_path):
 
@@ -301,9 +231,6 @@ def blur_faces_in_file(source_path, target_path):
     # Skip the image?
     if reject_criterion is not None:
         return reject_criterion
-    
-    #if len(face_locations) == 0:
-    #    return False
     
     # Blur the image.
     for top, right, bottom, left in face_locations:
