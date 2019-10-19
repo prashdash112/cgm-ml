@@ -171,6 +171,9 @@ def main():
         )
     else:
         raise Exception("Unexpected optimizer {}".format(config.model_parameters.optimizer))
+
+
+        
     model.compile(
         optimizer=optimizer,
         loss="mse",
@@ -213,7 +216,7 @@ def main():
 
     # Model checkpoint.    
     val_loss_callback = tf.keras.callbacks.ModelCheckpoint(
-        os.path.join(config.global_parameters.output_path, "best_weights.{epoch:5d}-{val_loss:.2f}.hdf5"), 
+        os.path.join(config.global_parameters.output_path, "val_loss_{val_loss:.2f}_at_epoche_{epoch:2d}.hdf5"), 
         monitor="val_loss", 
         verbose=0, 
         save_best_only=True, 
