@@ -19,6 +19,7 @@
 import psycopg2
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 import json
+import os
 
 def connect_to_default_database():
     """
@@ -35,26 +36,34 @@ def connect_to_default_database():
     return DatabaseInterface(dbname=dbname, user=user, host=host, password=password, port=port, sslmode=sslmode)
     
     
-def connect_to_main_database():
+def connect_to_main_database(connection_file=None):
     """
     Connect to the main database. Uses database name and credentials from the JSON file.
     """
     
-    json_data = load_dbconnection_file()
-    dbname=json_data["dbname"]
-    user=json_data["user"]
-    host=json_data["host"]
-    password=json_data["password"]
-    port=json_data["port"]
-    sslmode=json_data["sslmode"]
+    json_data = load_dbconnection_file(connection_file)
+    dbname = json_data["dbname"]
+    user = json_data["user"]
+    host = json_data["host"]
+    password = json_data["password"]
+    port = json_data["port"]
+    sslmode = json_data["sslmode"]
+    
+    print("Host:    {}".format(host))
+    print("DB-name: {}".format(dbname))
     return DatabaseInterface(dbname=dbname, user=user, host=host, password=password, port=port, sslmode=sslmode)
     
     
-def load_dbconnection_file():
+def load_dbconnection_file(connection_file=None):
     """
     Loads the JSON file.
     """
-    with open("dbconnection.json") as json_file:  
+    
+    if connection_file == None:
+        connection_file = "dbconnection.json"
+        
+    print("Loading {}...".format(os.path.abspath(connection_file)))
+    with open(connection_file) as json_file:  
         json_data = json.load(json_file)
         return json_data
 
