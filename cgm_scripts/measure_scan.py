@@ -33,14 +33,17 @@ logging._warn_preinit_stderr = 0
 import json
 import glob
 from cgmcore import modelutils, utils
+from cgm_database import dbutils
 import h5py
 import numpy as np
 from bunch import Bunch
 
 # Exit if not properly called.
-if len(sys.argv) != 2:
-    print("Please provide the path to a scan.")
+if len(sys.argv) != 3:
+    print("Please provide the path to a scan and dbconnection file")
     exit(1)
+
+db_connection_file = str(sys.argv[2])
 
 # Get the path to the scan.
 scan_path = sys.argv[1]
@@ -62,68 +65,74 @@ results.scan.qrcode = scan_qrcode
 results.scan.timestamp = scan_timestamp
 results.model_results = []
 
+main_connector = dbutils.connect_to_main_database(db_connection_file)
+
+select_models = "SELECT * FROM model WHERE (json_metadata->>'active')::BOOLEAN IS true;"
+results = main_connector.execute(select_models, fetch_all=True)
+
 # Go through the models from the models-file.
-with open("/whhdata/models.json") as json_file:
-    json_data = json.load(json_file)
-    for entry in json_data["models"]:
+#with open("/home/mmatiaschek/whhdata/models.json") as json_file:
+for result in results:
+    #json_data = json.load(json_file)
+    #for entry in json_data["models"]:
         
         # Get the name of the model.
-        model_name = entry["name"]
-        
+    #model_name = entry["name"]
+    model_name = result[0]
         # Skip model if it is disabled.
-        if entry["active"] == False:
-            continue
+    #if entry["active"] == False:
+    #    continue
         
         # Locate the weights of the model.
-        weights_search_path = os.path.join("/whhdata/models", model_name, "*")
-        weights_paths = [x for x in glob.glob(weights_search_path) if "-weights" in x]
-        if len(weights_paths) == 0:
-            continue
-        weights_path = weights_paths[0]
-        
+    weights_search_path = os.path.join("/home/mmatiaschek/whhdata/models", model_name, "*")
+    weights_paths = [x for x in glob.glob(weights_search_path) if "-weights" in x]
+    if len(weights_paths) == 0:
+        continue
+    weights_path = weights_paths[0]
+    entry = result[3]    
         # Get the model parameters.
-        input_shape = entry["input_shape"]
-        output_size = entry["output_size"]
-        hidden_sizes = entry["hidden_sizes"]
-        subsampling_method = entry["subsampling_method"]
+    input_shape = entry["input_shape"]
+    output_size = entry["output_size"]
+    hidden_sizes = entry["hidden_sizes"]
+    subsampling_method = entry["subsampling_method"]
         
         # Load the model.
-        model = modelutils.load_pointnet(weights_path, input_shape, output_size, hidden_sizes)
+    model = modelutils.load_pointnet(weights_path, input_shape, output_size, hidden_sizes)
 
         # Prepare the pointclouds.
-        pointclouds = []
-        for pcd_path in pcd_paths:
-            pointcloud = utils.load_pcd_as_ndarray(pcd_path)
-            pointcloud = utils.subsample_pointcloud(
-                pointcloud,
-                target_size=input_shape[0], 
-                subsampling_method="sequential_skip")
-            pointclouds.append(pointcloud)
-        pointclouds = np.array(pointclouds)
+    pointclouds = []
+    for pcd_path in pcd_paths:
+        pointcloud = utils.load_pcd_as_ndarray(pcd_path)
+        pointcloud = utils.subsample_pointcloud(
+            pointcloud,
+            target_size=input_shape[0], 
+            subsampling_method="sequential_skip")
+        pointclouds.append(pointcloud)
+    pointclouds = np.array(pointclouds)
         
         # Predict.
-        predictions = model.predict(pointclouds)
+    predictions = model.predict(pointclouds)
 
         # Prepare model result.
-        model_result = Bunch()
-        model_result.model_name = model_name
+    model_result = Bunch()
+    model_result.model_name = model_name
         
         # Store measure result.
-        model_result.measure_result = Bunch()
-        model_result.measure_result.mean = str(np.mean(predictions))
-        model_result.measure_result.min = str(np.min(predictions))
-        model_result.measure_result.max = str(np.max(predictions))
-        model_result.measure_result.std = str(np.std(predictions))
+    model_result.measure_result = Bunch()
+    model_result.measure_result.mean = str(np.mean(predictions))
+    model_result.measure_result.min = str(np.min(predictions))
+    model_result.measure_result.max = str(np.max(predictions))
+    model_result.measure_result.std = str(np.std(predictions))
         
         # Store artifact results.
-        model_result.artifact_results = []
-        for pcd_path, prediction in zip(pcd_paths, predictions):
-            artifact_result = Bunch()
-            artifact_result.path = pcd_path
-            artifact_result.prediction = str(prediction[0])
-            model_result.artifact_results.append(artifact_result)
+    model_result.artifact_results = []
+    for pcd_path, prediction in zip(pcd_paths, predictions):
+        artifact_result = Bunch()
+        artifact_result.path = pcd_path
+        artifact_result.prediction = str(prediction[0])
+        model_result.artifact_results.append(artifact_result)
         
-        results.model_results.append(model_result)
+    results.model_results.append(model_result)
 
 # Return results.
 results_json_string = json.dumps(results, indent=4)
