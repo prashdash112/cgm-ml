@@ -84,7 +84,7 @@ for result in results:
     #    continue
         
         # Locate the weights of the model.
-    weights_search_path = os.path.join("/home/mmatiaschek/whhdata/models", model_name, "*")
+    weights_search_path = os.path.join("/whhdata/models", model_name, "*")
     weights_paths = [x for x in glob.glob(weights_search_path) if "-weights" in x]
     if len(weights_paths) == 0:
         continue
@@ -94,10 +94,17 @@ for result in results:
     input_shape = entry["input_shape"]
     output_size = entry["output_size"]
     hidden_sizes = entry["hidden_sizes"]
+    hidden_sizes = [512, 256, 128]
     subsampling_method = entry["subsampling_method"]
         
-        # Load the model.
-    model = modelutils.load_pointnet(weights_path, input_shape, output_size, hidden_sizes)
+    # Load the model.
+    print(weights_path, input_shape, output_size, hidden_sizes)
+    try:
+        model = modelutils.load_pointnet(weights_path, input_shape, output_size, hidden_sizes)
+    except:
+        print("Failed!", weights_path)
+        continue
+    print("Worked!", weights_path)
 
         # Prepare the pointclouds.
     pointclouds = []
