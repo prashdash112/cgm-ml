@@ -75,6 +75,10 @@ def main():
     config = json.load(open(arguments.config_file, "r"))
     config = Bunch({ key: Bunch(value) for key, value in config.items()})
 
+    # Output path. Ensure its existence.
+    if os.path.exists(config.global_parameters.output_path) == False:
+        os.makedirs(config.global_parameters.output_path)
+    
     # Create logger.
     logger = logging.getLogger("train.py")
     logger.setLevel(logging.DEBUG)
@@ -87,6 +91,7 @@ def main():
     console_handler.setFormatter(formatter)
     logger.addHandler(file_handler)
     logger.addHandler(console_handler)
+    logger.info("Using output path: {}".format(config.global_parameters.output_path))
     logger.info("Starting training job...")
 
     # Prepare results.
@@ -125,19 +130,12 @@ def main():
         qrcodes_to_use=qrcodes_validate,
         workers=workers)
 
-    # Output path. Ensure its existence.
-    if os.path.exists(config.global_parameters.output_path) == False:
-        os.makedirs(config.global_parameters.output_path)
-    logger.info("Using output path:", config.global_parameters.output_path)
 
     # Copy config file.
     shutil.copy2(arguments.config_file, config.global_parameters.output_path)
     
     # Create the model path.
     model_path = os.path.join(config.global_parameters.output_path, "model.h5")
-    
-    # TODO
-    assert config.model_parameters.type == "pointnet"
     
     # Resume training.
     if arguments.resume_training == True:
@@ -149,18 +147,28 @@ def main():
     
     # Start from scratch.
     else:
-        model = modelutils.create_point_net(
-            config.model_parameters.input_shape, 
-            config.model_parameters.output_size, 
-            config.model_parameters.hidden_sizes
-        )
+        if config.model_parameters.type == "pointnet":
+            model = modelutils.create_point_net(
+                config.model_parameters.input_shape, 
+                config.model_parameters.output_size, 
+                config.model_parameters.hidden_sizes
+            )
+        elif config.model_parameters.type == "pointnet_no_bn":
+            model = modelutils.create_point_net_no_bn(
+                config.model_parameters.input_shape, 
+                config.model_parameters.output_size, 
+                config.model_parameters.hidden_sizes
+            )
+        else:
+            raise Exception("Unexpected model type {}".format(config.model_parameters.type))
+        
         logger.info("Created new model.")
     model.summary()
     
     # Compile model.
     if config.model_parameters.optimizer == "rmsprop":
         optimizer = optimizers.RMSprop(
-            learning_rate=config.model_parameters.learning_rate
+            lr=config.model_parameters.learning_rate
         )
     elif config.model_parameters.optimizer == "adam":
         optimizer = optimizers.Adam(
@@ -216,13 +224,14 @@ def main():
 
     # Model checkpoint.    
     val_loss_callback = tf.keras.callbacks.ModelCheckpoint(
-        os.path.join(config.global_parameters.output_path, "val_loss_{val_loss:.2f}_at_epoche_{epoch:2d}.hdf5"), 
+        os.path.join(config.global_parameters.output_path, "val_loss_{val_loss:.2f}_at_epoch_{epoch:2d}.hdf5"), 
         monitor="val_loss", 
         verbose=0, 
         save_best_only=True, 
         save_weights_only=False, 
         mode="auto", 
-        save_freq="epoch")
+        #save_freq="epoch"
+    )
     callbacks.append(val_loss_callback)    
     
     # Start training.

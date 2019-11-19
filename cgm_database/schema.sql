@@ -170,21 +170,21 @@ CREATE VIEW artifacts_with_targets AS
 SELECT
     person.qr_code AS qr_code,
     artifact.id AS artifact_id,
-    artifact.path AS artifact_path,
-    artifact.type AS type,
+    artifact.storage_path AS artifact_path,
+    artifact.dataformat AS type,
     measure.age AS age,
     measure.height AS height,
     measure.weight AS weight,
     measure.muac AS muac,
-    measure.head_circumference AS head_circumference,
-    measure_quality.text_value AS status
+    measure.head_circumference AS head_circumference
+    --measure_quality.text_value AS status
     FROM artifact
     INNER JOIN measure ON artifact.measure_id=measure.id
     INNER JOIN person ON measure.person_id=person.id
-    INNER JOIN measure_quality ON measure_quality.measure_id=measure.id
+    --INNER JOIN measure_quality ON measure_quality.measure_id=measure.id
     WHERE measure.height >= 60
     AND measure.height <= 120
     AND measure.weight >= 2
     AND measure.weight <= 20
-    AND measure_quality.key='expert_status'
+    --AND measure_quality.key='expert_status'
     ;

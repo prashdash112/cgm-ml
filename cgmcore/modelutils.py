@@ -266,6 +266,70 @@ def create_point_net(input_shape, output_size, hidden_sizes = [512, 256]):
     return model
 
 
+def create_point_net_no_bn(input_shape, output_size, hidden_sizes = [512, 256]):
+    """
+    Creates a PointNet.
+
+    See https://github.com/garyloveavocado/pointnet-keras/blob/master/train_cls.py
+
+    Args:
+        input_shape (shape): Input-shape.
+        output_size (int): Output-size.
+
+    Returns:
+        Model: A model.
+    """
+
+    num_points = input_shape[0]
+
+    input_points = layers.Input(shape=input_shape)
+    x = layers.Convolution1D(64, 1, activation='relu', input_shape=input_shape)(input_points)
+    x = layers.Convolution1D(128, 1, activation='relu')(x)
+    x = layers.Convolution1D(1024, 1, activation='relu')(x)
+    x = layers.MaxPooling1D(pool_size=num_points)(x)
+    x = layers.Dense(512, activation='relu')(x)
+    x = layers.Dense(256, activation='relu')(x)
+    x = layers.Dense(9, weights=[np.zeros([256, 9]), np.array([1, 0, 0, 0, 1, 0, 0, 0, 1]).astype(np.float32)])(x)
+    input_T = layers.Reshape((input_shape[1], input_shape[1]))(x)
+
+
+    # forward net
+#    g = layers.Lambda(mat_mul, arguments={'B': input_T})(input_points)
+    g = layers.dot([input_points, input_T], axes=-1, normalize=True)
+    g = layers.Convolution1D(64, 1, input_shape=input_shape, activation='relu')(input_points)
+    g = layers.Convolution1D(64, 1, input_shape=input_shape, activation='relu')(g)
+
+    # feature transform net
+    f = layers.Convolution1D(64, 1, activation='relu')(g)
+    f = layers.Convolution1D(128, 1, activation='relu')(f)
+    f = layers.Convolution1D(1024, 1, activation='relu')(f)
+    f = layers.MaxPooling1D(pool_size=num_points)(f)
+    f = layers.Dense(512, activation='relu')(f)
+    f = layers.Dense(256, activation='relu')(f)
+    f = layers.Dense(64 * 64, weights=[np.zeros([256, 64 * 64]), np.eye(64).flatten().astype(np.float32)])(f)
+    feature_T = layers.Reshape((64, 64))(f)
+
+    # forward net
+    g = layers.dot([g, feature_T], axes=-1, normalize=True)
+    g = layers.Convolution1D(64, 1, activation='relu')(g)
+    g = layers.Convolution1D(128, 1, activation='relu')(g)
+    g = layers.Convolution1D(1024, 1, activation='relu')(g)
+
+    # global_feature
+    global_feature = layers.MaxPooling1D(pool_size=num_points)(g)
+
+    # point_net_cls
+    c = global_feature
+    for hidden_size in hidden_sizes:
+        c = layers.Dense(hidden_size, activation='relu')(c)
+        c = layers.Dropout(rate=0.3)(c)
+    
+    c = layers.Dense(output_size, activation='linear')(c)
+    prediction = layers.Flatten()(c)
+
+    model = models.Model(inputs=input_points, outputs=prediction)
+    return model
+
 def create_dense_net(input_shape, output_size, hidden_sizes = []):
     
     model = models.Sequential()

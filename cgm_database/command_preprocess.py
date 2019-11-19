@@ -27,9 +27,9 @@ import numpy as np
 import datetime
 import pickle
 import config
+import shutil
 
-
-def execute_command_preprocess(preprocess_pcds=True, preprocess_ply=False, preprocess_jpgs=False, path_suffix=""):
+def execute_command_preprocess(preprocess_pcds=True, preprocess_ply=False, preprocess_jpgs=False, name=""):
     print("Preprocessing data-set...")
     
     print("Using '{}'".format(config.preprocessed_root_path))
@@ -39,10 +39,11 @@ def execute_command_preprocess(preprocess_pcds=True, preprocess_ply=False, prepr
     
 
     # Create the base-folder.
-    if path_suffix != "":
-        path_suffix = "-" + path_suffix
-    datetime_path = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
-    base_path = os.path.join(config.preprocessed_root_path, datetime_path + path_suffix)
+    assert name != ""
+    base_path = os.path.join(config.preprocessed_root_path, name)
+    if os.path.exists(base_path):
+        print("Already exists. Will overwrite...")
+        shutil.rmtree(base_path)
     os.mkdir(base_path)
 
 
@@ -62,10 +63,14 @@ def execute_command_preprocess(preprocess_pcds=True, preprocess_ply=False, prepr
         
         # Get entries.
         sql_statement = """
-            SELECT artifact_path, qr_code, height, weight 
+            SELECT 
+              REPLACE(REPLACE(artifact_path, '/storage/emulated/0/Child Growth Monitor Scanner App/', '/mnt/cgminbmzprod/qrcode/'), 'measurements', 'measure'),
+              qr_code, 
+              height, 
+              weight 
             FROM artifacts_with_targets 
             WHERE type='pcd'
-            AND status='standing'
+            --AND status='standing'
             ;
             """
         main_connector = dbutils.connect_to_main_database()
@@ -240,8 +245,8 @@ def filterjpgs(
 
 if __name__ == "__main__":
     
-    if len(sys.argv) < 2:
-        raise Exception("ERROR! Must specify what to update. [images|pointclouds|fusion|all]")
+    if len(sys.argv) != 3:
+        raise Exception("Usage: python command_preprocess.py [images|pointclouds|fusion|all] NAME")
 
     # Parse command line arguments.
     preprocess_pcds = False
@@ -262,8 +267,6 @@ if __name__ == "__main__":
         preprocess_pcds = True
         preprocess_ply  = True
     
-    path_suffix = ""
-    if len(sys.argv) > 2:
-        path_suffix = sys.argv[2]
-    
-    execute_command_preprocess(preprocess_pcds, preprocess_ply, preprocess_jpgs, path_suffix)
+    # Run.
+    name = sys.argv[2]
+    execute_command_preprocess(preprocess_pcds, preprocess_ply, preprocess_jpgs, name)

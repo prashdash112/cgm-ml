@@ -1,6 +1,6 @@
 {
     "global_parameters": {
-        "output_path": "models/20181016-pointcloud-height"
+        "output_path": "/whhdata/models/20191116-pointcloud-pointnet_no_bn-height"
     },
     
     "datagenerator_parameters": {
@@ -23,7 +23,7 @@
             128,
             64
         ],
-        "type": "pointnet",
+        "type": "pointnet_no_bn",
         "output_size": 1,
         "input_shape": [
             10000,

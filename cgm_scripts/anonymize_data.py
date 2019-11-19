@@ -58,7 +58,7 @@ def main():
         print("")
         print("Examples:")
         print("  anonymize_data.py file /localssd/qrcode/MH_WHH_0010/measurements/1537166990387/rgb/rgb_MH_WHH_0010_1537166990387_110_1750.069971052.jpg /localssd/anondata/")
-        print("  anonymize_data.py file /localssd/qrcode/MH_WHH_0010 /localssd/anondata/")
+        print("  anonymize_data.py scan /localssd/qrcode/MH_WHH_0010 /localssd/anondata/")
         exit(0)
 
     # Process the command line arguments.
