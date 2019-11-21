@@ -37,6 +37,7 @@ from cgm_database import dbutils
 import h5py
 import numpy as np
 from bunch import Bunch
+import random
 
 # Exit if not properly called.
 if len(sys.argv) != 4:
@@ -93,7 +94,7 @@ for model in models:
     subsampling_method = entry["subsampling_method"]
 
     # Load the model.
-    print(weights_path, input_shape, output_size, hidden_sizes)
+    #print(weights_path, input_shape, output_size, hidden_sizes)
     try:
         model = modelutils.load_pointnet(weights_path, input_shape, output_size, hidden_sizes)
     except:
@@ -130,7 +131,8 @@ for model in models:
     model_result.artifact_results = []
     for pcd_path, prediction in zip(pcd_paths, predictions):
         artifact_result = Bunch()
-        artifact_result.path = pcd_path
+        #artifact_result.path = pcd_path
+        artifact_result.path = '-'.join(pcd_path.split('/')[3:])
         artifact_result.prediction = str(prediction[0])
         model_result.artifact_results.append(artifact_result)
 
@@ -141,7 +143,7 @@ results_json_string = json.dumps(results)
 
 results_json_object = json.loads(results_json_string)
 
-filename = "{0}/{1}.json".format(destination_folder, 'test')
+filename = "{0}/{1}-{2}-{3}-{4}.json".format(destination_folder, pcd_paths[0].split('/')[3], scan_qrcode, scan_timestamp, random.randint(10000, 99999))
 
 # Add the results to a json file in destination_folder
 with open(filename, 'w') as json_file:
