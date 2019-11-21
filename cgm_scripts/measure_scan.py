@@ -90,7 +90,7 @@ for model in models:
     input_shape = entry["input_shape"]
     output_size = entry["output_size"]
     hidden_sizes = entry["hidden_sizes"]
-    hidden_sizes = [512, 256, 128]
+    #hidden_sizes = [512, 256, 128]
     subsampling_method = entry["subsampling_method"]
 
     # Load the model.
@@ -132,7 +132,7 @@ for model in models:
     for pcd_path, prediction in zip(pcd_paths, predictions):
         artifact_result = Bunch()
         #artifact_result.path = pcd_path
-        artifact_result.path = '-'.join(pcd_path.split('/')[3:])
+        artifact_result.path = '/'.join(pcd_path.split('/')[3:])
         artifact_result.prediction = str(prediction[0])
         model_result.artifact_results.append(artifact_result)
 
