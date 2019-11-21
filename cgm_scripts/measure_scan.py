@@ -68,28 +68,28 @@ results.model_results = []
 main_connector = dbutils.connect_to_main_database(db_connection_file)
 
 select_models = "SELECT * FROM model WHERE (json_metadata->>'active')::BOOLEAN IS true;"
-results = main_connector.execute(select_models, fetch_all=True)
+models = main_connector.execute(select_models, fetch_all=True)
 
 # Go through the models from the models-file.
 #with open("/home/mmatiaschek/whhdata/models.json") as json_file:
-for result in results:
+for model in models:
     #json_data = json.load(json_file)
     #for entry in json_data["models"]:
         
         # Get the name of the model.
     #model_name = entry["name"]
-    model_name = result[0]
+    model_name = model[0]
         # Skip model if it is disabled.
     #if entry["active"] == False:
     #    continue
         
         # Locate the weights of the model.
-    weights_search_path = os.path.join("/whhdata/models", model_name, "*")
+    weights_search_path = os.path.join("/home/smahale/whhdata/models", model_name, "*")
     weights_paths = [x for x in glob.glob(weights_search_path) if "-weights" in x]
     if len(weights_paths) == 0:
         continue
     weights_path = weights_paths[0]
-    entry = result[3]    
+    entry = model[3]    
         # Get the model parameters.
     input_shape = entry["input_shape"]
     output_size = entry["output_size"]
