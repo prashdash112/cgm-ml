@@ -40,111 +40,113 @@ from bunch import Bunch
 import random
 
 # Exit if not properly called.
-if len(sys.argv) != 4:
-    print("Please provide the path to a scan, dbconnection file and destination_folder")
-    exit(1)
+#if len(sys.argv) != 4:
+#    print("Please provide the path to a scan, dbconnection file and destination_folder")
+#    exit(1)
 
-db_connection_file = str(sys.argv[2])
-destination_folder = str(sys.argv[3])
+def store_results(scan_path, db_connection_file, destination_folder):
+
+#db_connection_file = str(sys.argv[2])
+#destination_folder = str(sys.argv[3])
 
 # Get the path to the scan.
-scan_path = sys.argv[1]
-scan_path_split = scan_path.split("/")
-scan_qrcode = scan_path_split[-3]
-scan_timestamp = scan_path_split[-1]
+#scan_path = sys.argv[1]
+    scan_path_split = scan_path.split("/")
+    scan_qrcode = scan_path_split[-3]
+    scan_timestamp = scan_path_split[-1]
 
-# Get the paths to the artifacts.
-glob_search_path = os.path.join(scan_path, "pc", "*.pcd")
-pcd_paths = glob.glob(glob_search_path)
-if len(pcd_paths) == 0:
-    print("No artifacts found. Aborting...")
-    exit(1)
+    # Get the paths to the artifacts.
+    glob_search_path = os.path.join(scan_path, "pc", "*.pcd")
+    pcd_paths = glob.glob(glob_search_path)
+    if len(pcd_paths) == 0:
+        print("No artifacts found. Aborting...")
+        exit(1)
 
-# Prepare results dictionary.
-results = Bunch()
-results.scan = Bunch()
-results.scan.qrcode = scan_qrcode
-results.scan.timestamp = scan_timestamp
-results.model_results = []
+    # Prepare results dictionary.
+    results = Bunch()
+    results.scan = Bunch()
+    results.scan.qrcode = scan_qrcode
+    results.scan.timestamp = scan_timestamp
+    results.model_results = []
 
-main_connector = dbutils.connect_to_main_database(db_connection_file)
+    main_connector = dbutils.connect_to_main_database(db_connection_file)
 
-# Select models from model table where active=True in json_metadata
-select_models = "SELECT * FROM model WHERE (json_metadata->>'active')::BOOLEAN IS true;"
-models = main_connector.execute(select_models, fetch_all=True)
+    # Select models from model table where active=True in json_metadata
+    select_models = "SELECT * FROM model WHERE (json_metadata->>'active')::BOOLEAN IS true;"
+    models = main_connector.execute(select_models, fetch_all=True)
 
-# Go through the models from the models-file.
-#with open("/home/mmatiaschek/whhdata/models.json") as json_file:
-for model in models:
-    model_name = model[0]
+    # Go through the models from the models-file.
+    #with open("/home/mmatiaschek/whhdata/models.json") as json_file:
+    for model in models:
+        model_name = model[0]
 
-    # Locate the weights of the model.
-    weights_search_path = os.path.join("/home/smahale/whhdata/models", model_name, "*")
-    weights_paths = [x for x in glob.glob(weights_search_path) if "-weights" in x]
-    if len(weights_paths) == 0:
-        continue
-    weights_path = weights_paths[0]
-    entry = model[3]
+        # Locate the weights of the model.
+        weights_search_path = os.path.join("/home/smahale/whhdata/models", model_name, "*")
+        weights_paths = [x for x in glob.glob(weights_search_path) if "-weights" in x]
+        if len(weights_paths) == 0:
+            continue
+        weights_path = weights_paths[0]
+        entry = model[3]
 
-    # Get the model parameters.
-    input_shape = entry["input_shape"]
-    output_size = entry["output_size"]
-    hidden_sizes = entry["hidden_sizes"]
-    #hidden_sizes = [512, 256, 128]
-    subsampling_method = entry["subsampling_method"]
+        # Get the model parameters.
+        input_shape = entry["input_shape"]
+        output_size = entry["output_size"]
+        hidden_sizes = entry["hidden_sizes"]
+        #hidden_sizes = [512, 256, 128]
+        subsampling_method = entry["subsampling_method"]
 
-    # Load the model.
-    #print(weights_path, input_shape, output_size, hidden_sizes)
-    try:
-        model = modelutils.load_pointnet(weights_path, input_shape, output_size, hidden_sizes)
-    except:
-        print("Failed!", weights_path)
-        continue
-    #print("Worked!", weights_path)
+        # Load the model.
+        #print(weights_path, input_shape, output_size, hidden_sizes)
+        try:
+            model = modelutils.load_pointnet(weights_path, input_shape, output_size, hidden_sizes)
+        except:
+            print("Failed!", weights_path)
+            continue
+        #print("Worked!", weights_path)
 
-    # Prepare the pointclouds.
-    pointclouds = []
-    for pcd_path in pcd_paths:
-        pointcloud = utils.load_pcd_as_ndarray(pcd_path)
-        pointcloud = utils.subsample_pointcloud(
-            pointcloud,
-            target_size=input_shape[0],
-            subsampling_method="sequential_skip")
-        pointclouds.append(pointcloud)
-    pointclouds = np.array(pointclouds)
+        # Prepare the pointclouds.
+        pointclouds = []
+        for pcd_path in pcd_paths:
+            pointcloud = utils.load_pcd_as_ndarray(pcd_path)
+            pointcloud = utils.subsample_pointcloud(
+                pointcloud,
+                target_size=input_shape[0],
+                subsampling_method="sequential_skip")
+            pointclouds.append(pointcloud)
+        pointclouds = np.array(pointclouds)
 
-    # Predict.
-    predictions = model.predict(pointclouds)
+        # Predict.
+        predictions = model.predict(pointclouds)
 
-    # Prepare model result.
-    model_result = Bunch()
-    model_result.model_name = model_name
+        # Prepare model result.
+        model_result = Bunch()
+        model_result.model_name = model_name
 
-    # Store measure result.
-    model_result.measure_result = Bunch()
-    model_result.measure_result.mean = str(np.mean(predictions))
-    model_result.measure_result.min = str(np.min(predictions))
-    model_result.measure_result.max = str(np.max(predictions))
-    model_result.measure_result.std = str(np.std(predictions))
+        # Store measure result.
+        model_result.measure_result = Bunch()
+        model_result.measure_result.mean = str(np.mean(predictions))
+        model_result.measure_result.min = str(np.min(predictions))
+        model_result.measure_result.max = str(np.max(predictions))
+        model_result.measure_result.std = str(np.std(predictions))
 
-    # Store artifact results.
-    model_result.artifact_results = []
-    for pcd_path, prediction in zip(pcd_paths, predictions):
-        artifact_result = Bunch()
-        #artifact_result.path = pcd_path
-        artifact_result.path = '/'.join(pcd_path.split('/')[3:])
-        artifact_result.prediction = str(prediction[0])
-        model_result.artifact_results.append(artifact_result)
+        # Store artifact results.
+        model_result.artifact_results = []
+        for pcd_path, prediction in zip(pcd_paths, predictions):
+            artifact_result = Bunch()
+            #artifact_result.path = pcd_path
+            artifact_result.path = '/'.join(pcd_path.split('/')[4:])
+            artifact_result.prediction = str(prediction[0])
+            model_result.artifact_results.append(artifact_result)
 
-    results.model_results.append(model_result)
+        results.model_results.append(model_result)
 
-results_json_string = json.dumps(results)
-#print(results_json_string)
+    results_json_string = json.dumps(results)
+    #print(results_json_string)
 
-results_json_object = json.loads(results_json_string)
+    results_json_object = json.loads(results_json_string)
 
-filename = "{0}/{1}-{2}-{3}-{4}.json".format(destination_folder, pcd_paths[0].split('/')[3], scan_qrcode, scan_timestamp, random.randint(10000, 99999))
+    filename = "{0}/{1}-{2}-{3}-{4}.json".format(destination_folder, pcd_paths[0].split('/')[3], scan_qrcode, scan_timestamp, random.randint(10000, 99999))
 
-# Add the results to a json file in destination_folder
-with open(filename, 'w') as json_file:
-    json.dump(results_json_object, json_file, indent=2)
+    # Add the results to a json file in destination_folder
+    with open(filename, 'w') as json_file:
+        json.dump(results_json_object, json_file, indent=2)
