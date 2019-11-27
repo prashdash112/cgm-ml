@@ -31,7 +31,7 @@ import os
 from enum import Enum
 
 def fuse_point_cloud(points, rgb_vals, confidence, seg_vals): 
-    df = pd.DataFrame(columns=['x', 'y', 'z','red', 'green', 'blue', 'c', 'seg'])
+    df = pd.DataFrame(columns=['x', 'y', 'z','red', 'green', 'blue', 'c', 'seg', 'nx', 'ny', 'nz'])
 
     df['x']     = points[:, 0]                              # saving carthesian coordinates
     df['y']     = points[:, 1]
@@ -45,6 +45,10 @@ def fuse_point_cloud(points, rgb_vals, confidence, seg_vals):
 
     df['seg']   = seg_vals[:].astype(np.float)              # saving the segmentation
 
+    df['nx']    = 0.0                                       # normal x coordinate
+    df['ny']    = 0.0                                       # normal y coordinate
+    df['nz']    = 0.0                                       # normal z coordinate
+
     new_pc      = PyntCloud(df)
     return new_pc
 
@@ -52,8 +56,6 @@ def fuse_point_cloud(points, rgb_vals, confidence, seg_vals):
 def write_color_ply(fname, points, color_vals, confidence):
     new_pc = fuse_point_cloud(points, color_vals, confidence)
     write_ply(fname, new_pc.points, as_text=True)
-
-
 
 
 
@@ -156,6 +158,6 @@ def get_viz_confidence(ply_path):
 Function to get the segmentation from a point cloud as an image for visualization
 '''
 def get_viz_segmentation(ply_path):
-    get_viz_channel(ply_path, channel=Channel.segmentation
+    get_viz_channel(ply_path, channel=Channel.segmentation)
 
 

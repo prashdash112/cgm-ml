@@ -34,8 +34,6 @@ from pyntcloud import PyntCloud
 
 
 def apply_fusion(calibration_file, pcd_file, jpg_file, seg_path):
-
-
     ''' 
     check the path if everything is correct
     '''
