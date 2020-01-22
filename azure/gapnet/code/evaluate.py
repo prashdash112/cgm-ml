@@ -2,34 +2,26 @@ import azureml
 from azureml.core import Workspace
 from azureml.core import Experiment
 from azureml.core.run import Run
-#import argparse
-#import os
-#import glob2 as glob
-#from gapnet.models import GAPNet
-#import tensorflow as tf
-#from tensorflow.keras import callbacks, optimizers
-#import numpy as np
-#import pickle
-#import random
+import argparse
+import os
+import glob2 as glob
+from gapnet.models import GAPNet
+import tensorflow as tf
+from tensorflow.keras import models
+import numpy as np
+import pickle
+from preprocessing import preprocess_pointcloud, preprocess_targets
+import json
 
 
-"""
-TODOS
-
-- [X] save model
-- [ ] use TensorBoard
-- [X] what about eager execution?
-- [X] decide: tf.data or generator
-- [X] fix transform layer
-
-"""
-
-assert False
-
-
-# Disable eager execution.
-from tensorflow.compat.v1 import disable_eager_execution
-#disable_eager_execution()
+# Parse the arguments.
+parser = argparse.ArgumentParser(description="Training Script")
+parser.add_argument(
+    "--run_id", 
+    type=str, 
+    required=True,
+    help="The id of the run that contains the trained model.")
+args = parser.parse_args()
 
 
 # Get the current run.
@@ -61,152 +53,58 @@ else:
     dataset_path = run.input_datasets["dataset"]
 
     
-# Get the QR-code paths.
-print("Dataset path:", dataset_path)
-print("Getting QR-code paths...")
-qrcode_paths = glob.glob(os.path.join(dataset_path, "pcd", "*",))
+# Download the model from the provided run.
+print("Downloading model from run with id {}...".format(args.run_id))
 
-# Shuffle and split into train and validate.
-random.shuffle(qrcode_paths)
-split_index = int(len(qrcode_paths) * 0.8)
-qrcode_paths_training = qrcode_paths[:split_index]
-qrcode_paths_validate = qrcode_paths[split_index:]
-del qrcode_paths
+# Locate the run that contains the model.
+run_that_contains_model = None
+for experiment_run in experiment.get_runs():
+    if experiment_run.id == args.run_id:
+        run_that_contains_model = experiment_run
+        break
+if run_that_contains_model is None:
+    print("ERROR! Run not found!")
+    exit(0)
 
-# Show split.
-print("Paths for training:")
-print("\t" + "\n\t".join(qrcode_paths_training))
-print("Paths for validation:")
-print("\t" + "\n\t".join(qrcode_paths_validate))
+# Download the model.
+output_directory = "model-" + args.run_id
+run_that_contains_model.download_files(output_directory=output_directory)
 
-def get_pickle_files(paths):
-    pickle_paths = []
-    for path in paths:
-        pickle_paths.extend(glob.glob(os.path.join(path, "**", "*.p")))
-    return pickle_paths
-    
-# Get the pointclouds.
-print("Getting pointcloud paths...")
-paths_training = get_pickle_files(qrcode_paths_training)
-paths_validate = get_pickle_files(qrcode_paths_validate)
-del qrcode_paths_training
-del qrcode_paths_validate
-print("Using {} files for training.".format(len(paths_training)))
-print("Using {} files for validation.".format(len(paths_validate)))
-
-# Function for loading and subsampling pointclouds.
-def tf_load_pickle(path, subsample_size, channels, targets_indices):
-    assert isinstance(channels, list) 
-    assert isinstance(targets_indices, list) 
-
-    def py_load_pickle(path):
-        pointcloud, targets = pickle.load(open(path.numpy(), "rb"))
-        if subsample_size is not None:
-            skip = max(1, round(len(pointcloud) / subsample_size))
-            pointcloud_skipped = pointcloud[::skip,:]
-            result = np.zeros((subsample_size, pointcloud.shape[1]), dtype="float32")
-            result[:len(pointcloud_skipped),:] = pointcloud_skipped[:subsample_size]
-            pointcloud = result
-        if channels is not None:
-            pointcloud = pointcloud[:,channels]
-        if targets_indices is not None:
-            targets = targets[targets_indices]
-        return pointcloud, targets
-
-    pointcloud, targets = tf.py_function(py_load_pickle, [path], [tf.float32, tf.float32])
-    pointcloud.set_shape((subsample_size, len(channels)))
-    targets.set_shape((len(targets_indices,)))
-    return pointcloud, targets
-
-# Parameters for dataset generation.
-shuffle_buffer_size = 64
-subsample_size = 1024
-channels = list(range(0, 3))
-targets_indices = [1] # 0 is height, 1 is weight.
-
-# Create dataset for training.
-paths = paths_training
-dataset = tf.data.Dataset.from_tensor_slices(paths)
-dataset = dataset.map(lambda x: tf_load_pickle(x, subsample_size, channels, targets_indices))
-dataset = dataset.cache()
-dataset = dataset.shuffle(shuffle_buffer_size)
-dataset = dataset.prefetch(tf.data.experimental.AUTOTUNE)
-dataset_training = dataset
-del dataset
-
-# Create dataset for validation.
-# Note: No shuffle necessary.
-paths = paths_validate
-dataset = tf.data.Dataset.from_tensor_slices(paths)
-dataset = dataset.map(lambda x: tf_load_pickle(x, subsample_size, channels, targets_indices))
-dataset = dataset.cache()
-dataset = dataset.prefetch(tf.data.experimental.AUTOTUNE)
-dataset_validate = dataset
-del dataset
-
-
-# Note: Now the datasets are prepared.
-
-
-# Start logging.
-#run = experiment.start_logging()
-
-# Intantiate GAPNet.
+# Instantiate the model with its weights.
 model = GAPNet()
+model.load_weights(os.path.join(output_directory, "gapnet_weights.h5"))
 model.summary()
 
-# Get ready to add callbacks.
-training_callbacks = []
+# Get all files from the dataset.
+pickle_files = glob.glob(os.path.join(dataset_path, "**", "*.p"))
 
-# Pushes metrics and losses into the run on AzureML.
-class AzureLogCallback(callbacks.Callback):
+# Evaluate all files.
+data = { "results": [] }
+for pickle_file in pickle_files:
+    name = os.path.basename(pickle_file).split(".")[0]
     
-    def on_epoch_end(self, epoch, logs=None):
-        if logs is not None:
-            for key, value in logs.items():
-                run.log(key, value)
-training_callbacks.append(AzureLogCallback())
-
-# Add TensorBoard callback.                
-tensorboard_callback = tf.keras.callbacks.TensorBoard(
-        log_dir="logs", 
-        histogram_freq=0, 
-        write_graph=True, 
-        write_grads=False, 
-        write_images=True, 
-        embeddings_freq=0, 
-        embeddings_layer_names=None, 
-        embeddings_metadata=None, 
-        embeddings_data=None, 
-        update_freq="epoch"
-    )
-training_callbacks.append(tensorboard_callback)
-
-
-# Compile the model.
-lr = 0.0001
-adam = optimizers.Adam(lr=lr)
-model.compile(
-    optimizer=adam,
-    loss="mse",
-    metrics=["mae"]
-)
-
-batch_size = 128
-epochs = 200
-model.fit(
-    dataset_training.batch(batch_size),
-    validation_data=dataset_validate.batch(batch_size),
-    epochs=epochs,
-    callbacks=training_callbacks
-)
-
-# Save the model.
-model_name = "gapnet"   
-path = "gapnet-model"
-model.save(path)    
-run.upload_folder(name=model_name, path=path)
-
+    # Load and preprocess the data.
+    pointcloud, targets = pickle.load(open(pickle_file, "rb"))
+    pointcloud = np.array([preprocess_pointcloud(pointcloud, 1024, list(range(3)))])
+    targets = preprocess_targets(targets, [0])[0]
+    predicted_targets = model.predict(pointcloud)[0][0]
+    
+    # Store results.
+    result = {
+        "name": name,
+        "targets": str(targets),
+        "predicted_targets": str(predicted_targets),
+        "error": str(np.abs(predicted_targets - targets))
+    }
+    data["results"].append(result)
+    
+# Save results.
+json_path = "results.json"
+with open(json_path, 'w') as outfile:
+    json.dump(data, outfile)
+    
+# Upload to azure.    
+run.upload_file(name=json_path, path_or_stream=json_path) 
 
 # Done.
 run.complete()      

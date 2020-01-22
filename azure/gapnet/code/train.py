@@ -2,7 +2,6 @@ import azureml
 from azureml.core import Workspace
 from azureml.core import Experiment
 from azureml.core.run import Run
-import argparse
 import os
 import glob2 as glob
 from gapnet.models import GAPNet
@@ -11,24 +10,7 @@ from tensorflow.keras import callbacks, optimizers
 import numpy as np
 import pickle
 import random
-
-
-"""
-TODOS
-
-- [X] save model
-- [ ] use TensorBoard
-- [X] what about eager execution?
-- [X] decide: tf.data or generator
-- [X] fix transform layer
-
-"""
-
-
-# Disable eager execution.
-from tensorflow.compat.v1 import disable_eager_execution
-#disable_eager_execution()
-
+from preprocessing import preprocess_pointcloud, preprocess_targets
 
 # Get the current run.
 run = Run.get_context()
@@ -57,7 +39,6 @@ else:
     experiment = run.experiment
     workspace = experiment.workspace
     dataset_path = run.input_datasets["dataset"]
-
     
 # Get the QR-code paths.
 print("Dataset path:", dataset_path)
@@ -99,16 +80,8 @@ def tf_load_pickle(path, subsample_size, channels, targets_indices):
 
     def py_load_pickle(path):
         pointcloud, targets = pickle.load(open(path.numpy(), "rb"))
-        if subsample_size is not None:
-            skip = max(1, round(len(pointcloud) / subsample_size))
-            pointcloud_skipped = pointcloud[::skip,:]
-            result = np.zeros((subsample_size, pointcloud.shape[1]), dtype="float32")
-            result[:len(pointcloud_skipped),:] = pointcloud_skipped[:subsample_size]
-            pointcloud = result
-        if channels is not None:
-            pointcloud = pointcloud[:,channels]
-        if targets_indices is not None:
-            targets = targets[targets_indices]
+        pointcloud = preprocess_pointcloud(pointcloud, subsample_size, channels)
+        targets = preprocess_targets(targets, targets_indices)
         return pointcloud, targets
 
     pointcloud, targets = tf.py_function(py_load_pickle, [path], [tf.float32, tf.float32])
@@ -120,12 +93,12 @@ def tf_load_pickle(path, subsample_size, channels, targets_indices):
 shuffle_buffer_size = 64
 subsample_size = 1024
 channels = list(range(0, 3))
-targets_indices = [1] # 0 is height, 1 is weight.
+targets_indices = [0] # 0 is height, 1 is weight.
 
 # Create dataset for training.
 paths = paths_training
 dataset = tf.data.Dataset.from_tensor_slices(paths)
-dataset = dataset.map(lambda x: tf_load_pickle(x, subsample_size, channels, targets_indices))
+dataset = dataset.map(lambda path: tf_load_pickle(path, subsample_size, channels, targets_indices))
 dataset = dataset.cache()
 dataset = dataset.shuffle(shuffle_buffer_size)
 dataset = dataset.prefetch(tf.data.experimental.AUTOTUNE)
@@ -136,7 +109,7 @@ del dataset
 # Note: No shuffle necessary.
 paths = paths_validate
 dataset = tf.data.Dataset.from_tensor_slices(paths)
-dataset = dataset.map(lambda x: tf_load_pickle(x, subsample_size, channels, targets_indices))
+dataset = dataset.map(lambda path: tf_load_pickle(path, subsample_size, channels, targets_indices))
 dataset = dataset.cache()
 dataset = dataset.prefetch(tf.data.experimental.AUTOTUNE)
 dataset_validate = dataset
@@ -191,7 +164,7 @@ model.compile(
 )
 
 batch_size = 128
-epochs = 200
+epochs = 100
 model.fit(
     dataset_training.batch(batch_size),
     validation_data=dataset_validate.batch(batch_size),
@@ -200,10 +173,17 @@ model.fit(
 )
 
 # Save the model.
-model_name = "gapnet"   
-path = "gapnet-model"
+print("Saving and uploading weights...")
+path = "gapnet_weights.h5"
+model.save_weights(path)    
+run.upload_file(name="gapnet_weights.h5", path_or_stream=path)
+
+# Save the model.
+print("Saving and uploading model...")
+path = "gapnet_model"
 model.save(path)    
-run.upload_folder(name=model_name, path=path)
+run.upload_folder(name="gapnet", path=path)
+
 
 
 # Done.

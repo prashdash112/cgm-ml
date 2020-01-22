@@ -76,7 +76,7 @@ class GAPNet(tf.keras.Model):
         self.dense_dropout2 = layers.Dropout(0.5)
 
         # Dense 3.
-        self.dense3 = layers.Dense(40, activation="linear")
+        self.dense3 = layers.Dense(1, activation="linear")
 
         super(GAPNet, self).build(input_shape)
 
@@ -184,7 +184,7 @@ class GAPNet(tf.keras.Model):
 
         # Dense 3.
         net = self.dense3(net)
-        assert_shape_is(net, (40,))
+        #assert_shape_is(net, (40,))
 
         return net
 
