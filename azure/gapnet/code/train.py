@@ -93,7 +93,7 @@ def tf_load_pickle(path, subsample_size, channels, targets_indices):
 shuffle_buffer_size = 64
 subsample_size = 1024
 channels = list(range(0, 3))
-targets_indices = [0] # 0 is height, 1 is weight.
+targets_indices = [1] # 0 is height, 1 is weight.
 
 # Create dataset for training.
 paths = paths_training
@@ -164,7 +164,7 @@ model.compile(
 )
 
 batch_size = 128
-epochs = 100
+epochs = 50
 model.fit(
     dataset_training.batch(batch_size),
     validation_data=dataset_validate.batch(batch_size),
