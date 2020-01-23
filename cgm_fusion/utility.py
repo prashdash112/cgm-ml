@@ -30,7 +30,7 @@ import os
 
 from enum import Enum
 
-def fuse_point_cloud(points, rgb_vals, confidence, seg_vals): 
+def fuse_point_cloud(points, rgb_vals, confidence, seg_vals, normals): 
     df = pd.DataFrame(columns=['x', 'y', 'z','red', 'green', 'blue', 'c', 'seg', 'nx', 'ny', 'nz'])
 
     df['x']     = points[:, 0]                              # saving carthesian coordinates
@@ -45,17 +45,18 @@ def fuse_point_cloud(points, rgb_vals, confidence, seg_vals):
 
     df['seg']   = seg_vals[:].astype(np.float)              # saving the segmentation
 
-    df['nx']    = 0.0                                       # normal x coordinate
-    df['ny']    = 0.0                                       # normal y coordinate
-    df['nz']    = 0.0                                       # normal z coordinate
+    df['nx']    = normals[:, 0]                             # normal x coordinate
+    df['ny']    = normals[:, 1]                             # normal y coordinate
+    df['nz']    = normals[:, 2]                             # normal z coordinate
 
     new_pc      = PyntCloud(df)
     return new_pc
 
 
-def write_color_ply(fname, points, color_vals, confidence):
-    new_pc = fuse_point_cloud(points, color_vals, confidence)
+def write_color_ply(fname, points, color_vals, confidence, normals):
+    new_pc = fuse_point_cloud(points, color_vals, confidence, normals)
     write_ply(fname, new_pc.points, as_text=True)
+    print(fname)
 
 
 

@@ -25,6 +25,7 @@ import os
 import cv2
 import numpy as np
 import pandas as pd
+import open3d as o3d
 
 
 from cgm_fusion.calibration import get_intrinsic_matrix, get_extrinsic_matrix, get_k
@@ -95,7 +96,28 @@ def apply_fusion(calibration_file, pcd_file, jpg_file, seg_path):
             segment_vals[i, :] = seg[y, x] 
 
 
-    fused_point_cloud = fuse_point_cloud(points, color_vals, confidence, segment_vals)
+
+
+    # convert from pyntcloud to open3d
+    cloud_open3d = o3d.io.read_point_cloud(pcd_file)
+
+    # calculate the normals from the existing cloud
+    cloud_open3d.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.1, max_nn=30))
+
+    # print("Print a normal vector of the 0th point")
+    # print(cloud_open3d.normals[0])
+    # print("Print the normal vectors of the first 10 points")
+    # print(np.asarray(cloud_open3d.normals)[:10, :])
+    # print("x: " )
+    # print(np.asarray(cloud_open3d.normals)[0,0])
+    # print("y: ")
+    # print(np.asarray(cloud_open3d.normals)[0,1])
+    # print("z: ")
+    # print(np.asarray(cloud_open3d.normals)[0,2])
+    # print("")
+
+
+    fused_point_cloud = fuse_point_cloud(points, color_vals, confidence, segment_vals, np.asarray(cloud_open3d.normals))
 
     return  fused_point_cloud
 
