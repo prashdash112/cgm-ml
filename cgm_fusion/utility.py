@@ -28,7 +28,9 @@ import sys
 import os 
 
 
-from enum import Enum
+#from enum import Enum
+from enum import IntEnum
+
 
 def fuse_point_cloud(points, rgb_vals, confidence, seg_vals, normals): 
     df = pd.DataFrame(columns=['x', 'y', 'z','red', 'green', 'blue', 'c', 'seg', 'nx', 'ny', 'nz'])
@@ -80,7 +82,7 @@ def apply_projection(points):
 
 
 
-class Channel(Enum):
+class Channel(IntEnum):
     x = 0
     y = 1
     z = 2
@@ -89,11 +91,14 @@ class Channel(Enum):
     green = 5
     blue = 6
     segmentation = 7
+    nx = 8
+    ny = 9
+    nz = 10
 
 '''
 Function to get the depth from a point cloud as an image for visualization
 '''
-def get_viz_channel(ply_path, channel=Channel.z):
+def get_viz_channel(ply_path, channel=Channel.z, output_path="/tmp/output.png"):
 
     calibration_file =  '/whhdata/calibration.xml'
     if not os.path.exists(calibration_file):                # check if the califile exists
@@ -113,9 +118,11 @@ def get_viz_channel(ply_path, channel=Channel.z):
         logging.error(" Error reading point cloud ")
         logging.error(str(e))
         
+
+    # print (int(channel))    
         
     points = cloud.points.values[:, :3]                        # get x y z
-    z      = cloud.points.values[:, channel]                   # get only z coordinate
+    z      = cloud.points.values[:, int(channel)]                   # get only z coordinate
     z      = (z - min(z)) / (max(z) - min(z))                  # normalize the data to 0 to 1
 
     # iterat of the points and calculat the x y coordinates in the image
@@ -134,7 +141,7 @@ def get_viz_channel(ply_path, channel=Channel.z):
     # resize and  return the image after pricessing
     imgScale  = 0.25
     newX,newY = viz_image.shape[1]*imgScale, viz_image.shape[0]*imgScale
-    cv2.imwrite('/tmp/depth_visualization.png', viz_image) 
+    cv2.imwrite(output_path, viz_image) 
 
     return viz_image
 
@@ -143,7 +150,7 @@ def get_viz_channel(ply_path, channel=Channel.z):
 Function to get the rgb from a point cloud as an image for visualization
 '''
 def get_viz_rgb(ply_path):
-    get_viz_channel(ply_path, channel=Channel.red)
+    get_viz_channel(ply_path, channel=Channel.red, output_path="/tmp/red.png")
 
 
 
@@ -151,14 +158,23 @@ def get_viz_rgb(ply_path):
 Function to get the confidence from a point cloud as an image for visualization
 '''
 def get_viz_confidence(ply_path):
-    get_viz_channel(ply_path, channel=Channel.confidence)
+    get_viz_channel(ply_path, channel=Channel.confidence, output_path="/tmp/confidence.png")
 
+
+'''
+Function to get the confidence from a point cloud as an image for visualization
+'''
+def get_viz_depth(ply_path):
+    get_viz_channel(ply_path, channel=Channel.z, output_path="/tmp/depth.png")
 
 
 '''
 Function to get the segmentation from a point cloud as an image for visualization
 '''
 def get_viz_segmentation(ply_path):
-    get_viz_channel(ply_path, channel=Channel.segmentation)
+    get_viz_channel(ply_path, channel=Channel.segmentation, output_path="/tmp/segmentation.png")
 
+    
+def get_viz_normal_z(ply_path):
+    get_viz_channel(ply_path, channel=Channel.nz, output_path="/tmp/normals.png")
 
