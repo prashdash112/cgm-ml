@@ -178,7 +178,7 @@ def create_voxnet_model_homepage(input_shape, output_size):
     return model
 
 
-def create_point_net(input_shape, output_size, hidden_sizes = [512, 256]):
+def create_point_net(input_shape, output_size, hidden_sizes = [512, 256], use_lambda=False):
     """
     Creates a PointNet.
 
@@ -217,8 +217,10 @@ def create_point_net(input_shape, output_size, hidden_sizes = [512, 256]):
 
 
     # forward net
-#    g = layers.Lambda(mat_mul, arguments={'B': input_T})(input_points)
-    g = layers.dot([input_points, input_T], axes=-1, normalize=True)
+    if use_lambda == True:
+        g = layers.Lambda(mat_mul, arguments={'B': input_T})(input_points)
+    else:
+        g = layers.dot([input_points, input_T], axes=-1, normalize=True)
     g = layers.Convolution1D(64, 1, input_shape=input_shape, activation='relu')(input_points)
     g = layers.BatchNormalization()(g)
     g = layers.Convolution1D(64, 1, input_shape=input_shape, activation='relu')(g)
@@ -240,8 +242,10 @@ def create_point_net(input_shape, output_size, hidden_sizes = [512, 256]):
     feature_T = layers.Reshape((64, 64))(f)
 
     # forward net
-    #g = layers.Lambda(mat_mul, arguments={'B': feature_T})(g)
-    g = layers.dot([g, feature_T], axes=-1, normalize=True)
+    if use_lambda == True:
+        g = layers.Lambda(mat_mul, arguments={'B': feature_T})(g)
+    else:
+        g = layers.dot([g, feature_T], axes=-1, normalize=True)
     g = layers.Convolution1D(64, 1, activation='relu')(g)
     g = layers.BatchNormalization()(g)
     g = layers.Convolution1D(128, 1, activation='relu')(g)
@@ -377,7 +381,11 @@ def save_model_and_history(output_path, datetime_string, model, history, trainin
  
 
 def load_pointnet(weights_path, input_shape, output_size, hidden_sizes):
-    model = create_point_net(input_shape, output_size, hidden_sizes)
-    model.load_weights(weights_path)
+    try:
+        model = create_point_net(input_shape, output_size, hidden_sizes, use_lambda=False)
+        model.load_weights(weights_path)
+    except:
+        model = create_point_net(input_shape, output_size, hidden_sizes, use_lambda=True)
+        model.load_weights(weights_path)
     return model
     
