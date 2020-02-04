@@ -28,6 +28,7 @@ import sys
 import os 
 
 import pickle
+import logging
 
 
 
@@ -91,7 +92,7 @@ class Channel(Enum):
     segmentation = 7
 
 
-def get_depth_channel(ply_path):
+def get_depth_channel(ply_path, output_path_np, output_path_png):
     channel = Channel.z
     calibration_file =  '/whhdata/calibration.xml'
     if not os.path.exists(calibration_file):                   # check if the califile exists
@@ -105,11 +106,15 @@ def get_depth_channel(ply_path):
     viz_image = np.zeros((height,width,nr_of_channels), np.float64)
 
     # get the points from the pointcloud
+    # print(ply_path)
+
     try:
         cloud  = PyntCloud.from_file(ply_path)                 # load the data from the files
     except ValueError as e: 
         logging.error(" Error reading point cloud ")
         logging.error(str(e))
+        logging.error(ply_path)
+        
         
         
     points = cloud.points.values[:, :3]                        # get x y z
@@ -130,20 +135,15 @@ def get_depth_channel(ply_path):
             viz_image[x,y] = z[i] #255 #255-255*z[i]
 
     # resize and  return the image after pricessing
-    imgScale  = 1
-    newX,newY = viz_image.shape[1]*imgScale, viz_image.shape[0]*imgScale
-    cv2.imwrite('/tmp/depth_visualization.png', viz_image) 
-
     dim = (180, 240)
     viz_image = cv2.resize(viz_image, dim, interpolation = cv2.INTER_AREA)
 
 
-    np.save("/tmp/out.npy", viz_image)
-    viz_2 = np.load("/tmp/out.npy")
+    np.save(output_path_np, viz_image)
+    # viz_2 = np.load("/tmp/out.npy")
 
-    img_n = cv2.normalize(src=viz_2, dst=None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8U)
-
-    cv2.imwrite('/tmp/bob.png', img_n) 
+    img_n = cv2.normalize(src=viz_image, dst=None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8U)
+    cv2.imwrite(output_path_png, img_n) 
 
 
     return viz_image
@@ -171,6 +171,7 @@ def get_viz_channel(ply_path, channel=Channel.z):
     except ValueError as e: 
         logging.error(" Error reading point cloud ")
         logging.error(str(e))
+
         
         
     points = cloud.points.values[:, :3]                        # get x y z
