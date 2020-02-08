@@ -37,11 +37,13 @@ import pickle
 extension_to_type = {
     "pcd" : "pcd",
     "jpg" : "rgb",
-    "ply" : "pcrgb"
+    "ply" : "pcrgb",
+    "npy" : "depth"
+    
 }
 
 
-def execute_command_update_artifacts(update_jpgs=False, update_pcds=False, update_pcrgb=True):
+def execute_command_update_artifacts(update_jpgs=False, update_pcds=False, update_pcrgb=True, update_depth=False):
 
     # Get all persons.
     print("Finding all persons at '{}'...".format(config.artifacts_path))
@@ -69,6 +71,8 @@ def execute_command_update_artifacts(update_jpgs=False, update_pcds=False, updat
         file_extensions.append("pcd")
     if update_pcrgb == True: 
         file_extensions.append("ply")
+    if update_depth == True: 
+        file_extensions.append("npy")
     
     # This method is executed in multi-processing mode.
     def process_person_paths(person_paths, process_index):
@@ -271,12 +275,13 @@ def get_last_updated():
 if __name__ == "__main__":
     
     if len(sys.argv) != 2:
-        raise Exception("ERROR! Must specify what to update. [images|pointclouds|fusion|all]")
+        raise Exception("ERROR! Must specify what to update. [images|pointclouds|fusion|depth|all]")
 
     # Parse command line arguments.
     update_jpgs = False
     update_pcds = False
     update_pcrgb = False
+    update_depth = False
     if sys.argv[1] == "images":
         print("Updating images only...")
         update_jpgs = True
@@ -286,14 +291,18 @@ if __name__ == "__main__":
     elif sys.argv[1] == "fusion": 
         print("Updateing pcrgb only...")
         update_pcrgb = True
+    elif sys.argv[1] == "depth": 
+        print("updateing detph only...")
+        update_depth = True
     elif sys.argv[1] == "all":
         print("Updating all artifacts...")
-        update_jpgs = True
-        update_pcds = True
+        update_jpgs  = True
+        update_pcds  = True
         update_pcrgb = True
+        update_depth = True
     
     # Run the thing.
-    execute_command_update_artifacts(update_jpgs, update_pcds, update_pcrgb)
+    execute_command_update_artifacts(update_jpgs, update_pcds, update_pcrgb, update_depth)
                         
                         
                         

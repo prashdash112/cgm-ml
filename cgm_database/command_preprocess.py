@@ -52,6 +52,8 @@ def execute_command_preprocess(preprocess_pcds=True, preprocess_ply=False, prepr
         os.mkdir(os.path.join(base_path, "ply"))
     if preprocess_jpgs == True:
         os.mkdir(os.path.join(base_path, "jpg"))
+    if preprocess_depth == True: 
+        os.mkdir(os.path.join(base_path, "depth"))
 
 
     print("Writing preprocessed data to {}...".format(base_path))
@@ -168,6 +170,32 @@ def execute_command_preprocess(preprocess_pcds=True, preprocess_ply=False, prepr
         
         # Start multiprocessing.
         utils.multiprocess(entries, process_pcd_entry)
+
+        # Process the filtered depth images.
+    if preprocess_depth == True:
+        assert False
+        entries = filterjpgs()["results"]
+        print("Found {} JPGs. Processing...".format(len(entries)))
+        bar = progressbar.ProgressBar(max_value=len(entries))
+        
+        # Method for processing a single entry.
+        def process_jpg_entry(entry):
+            path = entry["path"]
+            if os.path.exists(path) == False:
+                print("\n", "File {} does not exist!".format(path), "\n")
+                return
+            image = cv2.imread(path)
+            targets = np.array([entry["height_cms"], entry["weight_kgs"]])
+            qrcode = entry["qrcode"]
+            pickle_filename = os.path.basename(entry["path"]).replace(".jpg", ".p")
+            qrcode_path = os.path.join(base_path, "jpg", qrcode)
+            if os.path.exists(qrcode_path) == False:
+                os.mkdir(qrcode_path)
+            pickle_output_path = os.path.join(qrcode_path, pickle_filename)
+            pickle.dump((image, targets), open(pickle_output_path, "wb"))
+        
+        # Start multiprocessing.
+        utils.multiprocess(entries, process_pcd_entry)
         
 # TODO remove this soon        
 def filterpcds(
@@ -244,9 +272,11 @@ if __name__ == "__main__":
         raise Exception("ERROR! Must specify what to update. [images|pointclouds|fusion|all]")
 
     # Parse command line arguments.
-    preprocess_pcds = False
-    preprocess_jpgs = False
-    preprocess_ply  = False
+    preprocess_pcds  = False
+    preprocess_jpgs  = False
+    preprocess_ply   = False
+    preprocess_depth = False
+
     if sys.argv[1] == "images":
         print("Updating images only...")
         preprocess_jpgs = True
@@ -256,11 +286,15 @@ if __name__ == "__main__":
     elif sys.argv[1] == "fusion":
         print("Updating fusion only...")
         preprocess_ply = True
+    elif sys.argv[1] == "depth":
+        print("Updating depth only...")
+        preprocess_depth = True
     elif sys.argv[1] == "all":
         print("Updating all...")
-        preprocess_jpgs = True
-        preprocess_pcds = True
-        preprocess_ply  = True
+        preprocess_jpgs  = True
+        preprocess_pcds  = True
+        preprocess_ply   = True
+        preprocess_depth = True
     
     path_suffix = ""
     if len(sys.argv) > 2:
