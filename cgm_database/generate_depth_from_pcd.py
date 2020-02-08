@@ -98,7 +98,7 @@ def main():
     utils.multiprocess(pcd_paths, 
         process_method              = update_depth, 
         process_individial_entries  = False, 
-        number_of_workers           = 4,
+        number_of_workers           = 8,
         pass_process_index          = True, 
         progressbar                 = False, 
         disable_gpu                 =True)
