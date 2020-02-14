@@ -32,10 +32,12 @@ import logging
 
 
 
-from enum import Enum
+#from enum import Enum
+from enum import IntEnum
 
-def fuse_point_cloud(points, rgb_vals, confidence, seg_vals): 
-    df = pd.DataFrame(columns=['x', 'y', 'z','red', 'green', 'blue', 'c', 'seg'])
+
+def fuse_point_cloud(points, rgb_vals, confidence, seg_vals, normals): 
+    df = pd.DataFrame(columns=['x', 'y', 'z','red', 'green', 'blue', 'c', 'seg', 'nx', 'ny', 'nz'])
 
     df['x']     = points[:, 0]                              # saving carthesian coordinates
     df['y']     = points[:, 1]
@@ -49,15 +51,18 @@ def fuse_point_cloud(points, rgb_vals, confidence, seg_vals):
 
     df['seg']   = seg_vals[:].astype(np.float)              # saving the segmentation
 
+    df['nx']    = normals[:, 0]                             # normal x coordinate
+    df['ny']    = normals[:, 1]                             # normal y coordinate
+    df['nz']    = normals[:, 2]                             # normal z coordinate
+
     new_pc      = PyntCloud(df)
     return new_pc
 
 
-def write_color_ply(fname, points, color_vals, confidence):
-    new_pc = fuse_point_cloud(points, color_vals, confidence)
+def write_color_ply(fname, points, color_vals, confidence, normals):
+    new_pc = fuse_point_cloud(points, color_vals, confidence, normals)
     write_ply(fname, new_pc.points, as_text=True)
-
-
+    print(fname)
 
 
 
@@ -81,7 +86,7 @@ def apply_projection(points):
 
 
 
-class Channel(Enum):
+class Channel(IntEnum):
     x = 0
     y = 1
     z = 2
@@ -90,6 +95,9 @@ class Channel(Enum):
     green = 5
     blue = 6
     segmentation = 7
+    nx = 8
+    ny = 9
+    nz = 10
 
 
 def get_depth_channel(ply_path, output_path_np, output_path_png):
@@ -152,7 +160,7 @@ def get_depth_channel(ply_path, output_path_np, output_path_png):
 '''
 Function to get the depth from a point cloud as an image for visualization
 '''
-def get_viz_channel(ply_path, channel=Channel.z):
+def get_viz_channel(ply_path, channel=Channel.z, output_path="/tmp/output.png"):
 
     calibration_file =  '/whhdata/calibration.xml'
     if not os.path.exists(calibration_file):                # check if the califile exists
@@ -173,9 +181,11 @@ def get_viz_channel(ply_path, channel=Channel.z):
         logging.error(str(e))
 
         
+
+    # print (int(channel))    
         
     points = cloud.points.values[:, :3]                        # get x y z
-    z      = cloud.points.values[:, channel]                   # get only z coordinate
+    z      = cloud.points.values[:, int(channel)]                   # get only z coordinate
     z      = (z - min(z)) / (max(z) - min(z))                  # normalize the data to 0 to 1
 
     # iterat of the points and calculat the x y coordinates in the image
@@ -194,7 +204,7 @@ def get_viz_channel(ply_path, channel=Channel.z):
     # resize and  return the image after pricessing
     imgScale  = 0.25
     newX,newY = viz_image.shape[1]*imgScale, viz_image.shape[0]*imgScale
-    cv2.imwrite('/tmp/depth_visualization.png', viz_image) 
+    cv2.imwrite(output_path, viz_image) 
 
     return viz_image
 
@@ -203,7 +213,7 @@ def get_viz_channel(ply_path, channel=Channel.z):
 Function to get the rgb from a point cloud as an image for visualization
 '''
 def get_viz_rgb(ply_path):
-    get_viz_channel(ply_path, channel=Channel.red)
+    get_viz_channel(ply_path, channel=Channel.red, output_path="/tmp/red.png")
 
 
 
@@ -211,14 +221,23 @@ def get_viz_rgb(ply_path):
 Function to get the confidence from a point cloud as an image for visualization
 '''
 def get_viz_confidence(ply_path):
-    get_viz_channel(ply_path, channel=Channel.confidence)
+    get_viz_channel(ply_path, channel=Channel.confidence, output_path="/tmp/confidence.png")
 
+
+'''
+Function to get the confidence from a point cloud as an image for visualization
+'''
+def get_viz_depth(ply_path):
+    get_viz_channel(ply_path, channel=Channel.z, output_path="/tmp/depth.png")
 
 
 '''
 Function to get the segmentation from a point cloud as an image for visualization
 '''
 def get_viz_segmentation(ply_path):
-    get_viz_channel(ply_path, channel=Channel.segmentation)
+    get_viz_channel(ply_path, channel=Channel.segmentation, output_path="/tmp/segmentation.png")
 
+    
+def get_viz_normal_z(ply_path):
+    get_viz_channel(ply_path, channel=Channel.nz, output_path="/tmp/normals.png")
 
