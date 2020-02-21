@@ -113,9 +113,6 @@ def get_depth_channel(ply_path, output_path_np, output_path_png):
     nr_of_channels = 1
     viz_image = np.zeros((height,width,nr_of_channels), np.float64)
 
-    # get the points from the pointcloud
-    # print(ply_path)
-
     try:
         cloud  = PyntCloud.from_file(ply_path)                 # load the data from the files
     except ValueError as e: 
@@ -139,12 +136,18 @@ def get_depth_channel(ply_path, output_path_np, output_path_png):
         x, y = t.squeeze()
         x = int(np.round(x))
         y = int(np.round(y))
-        if x >= 0 and x < width and y >= 0 and y < height:
+        if x >= 0 and x < height and y >= 0 and y < width:
             viz_image[x,y] = z[i] #255 #255-255*z[i]
 
+
+    img_debug = cv2.normalize(src=viz_image, dst=None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8U)
+
+    cv2.imwrite("/tmp/viz_debug.png", viz_image) 
+
+
     # resize and  return the image after pricessing
-    dim = (180, 240)
-    viz_image = cv2.resize(viz_image, dim, interpolation = cv2.INTER_AREA)
+    # dim = (180, 240)
+    # viz_image = cv2.resize(viz_image, dim, interpolation = cv2.INTER_AREA)
 
 
     np.save(output_path_np, viz_image)
@@ -198,7 +201,7 @@ def get_viz_channel(ply_path, channel=Channel.z, output_path="/tmp/output.png"):
         x, y = t.squeeze()
         x = int(np.round(x))
         y = int(np.round(y))
-        if x >= 0 and x < width and y >= 0 and y < height:
+        if x >= 0 and x < height and y >= 0 and y < width:
             viz_image[x,y] = 255*z[i]
 
     # resize and  return the image after pricessing
