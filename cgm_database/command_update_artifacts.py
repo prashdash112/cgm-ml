@@ -37,11 +37,13 @@ import pickle
 extension_to_type = {
     "pcd" : "pcd",
     "jpg" : "rgb",
-    "ply" : "pcrgb"
+    "ply" : "pcrgb",
+    "png" : "depth_png",
+    "npy" : "depth_npy"
 }
 
 
-def execute_command_update_artifacts(update_jpgs=False, update_pcds=False, update_pcrgb=True):
+def execute_command_update_artifacts(update_jpgs=False, update_pcds=False, update_pcrgb=True, update_depth_npy=False, update_depth_png=False):
 
     # Get all persons.
     print("Finding all persons at '{}'...".format(config.artifacts_path))
@@ -69,6 +71,10 @@ def execute_command_update_artifacts(update_jpgs=False, update_pcds=False, updat
         file_extensions.append("pcd")
     if update_pcrgb == True: 
         file_extensions.append("ply")
+    if update_depth_npy == True:
+        file_extensions.append("npy")
+    if update_depth_png == True: 
+        file_extensions.append("png")
     
     # This method is executed in multi-processing mode.
     def process_person_paths(person_paths, process_index):
@@ -78,17 +84,21 @@ def execute_command_update_artifacts(update_jpgs=False, update_pcds=False, updat
         # Go through each person (qr-code).
         for person_path in tqdm(person_paths, position=process_index):
             
+            person_path  = person_path.replace('localssd/', 'localssd2/')
+
             # Find all artifacts for that person.
             artifact_paths = []
-            #print (file_extensions)
             for file_extension in file_extensions:
-                #print(file_extension)
+                print(file_extension)
                 glob_search_path = os.path.join(person_path, "**/*.{}".format(file_extension))
+
+                
                 #print (glob_search_path)
                 artifact_paths.extend(glob.glob(glob_search_path))
-
+                # print(artifact_paths)
+                
             
-            #print("Found {} artifacts in {}".format(len(artifact_paths), person_path)) 
+            print("Found {} artifacts in {}".format(len(artifact_paths), person_path)) 
         
             # Process those artifacts.
             main_connector = dbutils.connect_to_main_database()
@@ -218,6 +228,11 @@ def get_default_values(file_path, table, db_connector):
     qr_code = path_split[3]
     timestamp = path_split[-1].split("_")[-3]
     tango_timestamp = path_split[-1].split("_")[-1][:-4]
+    # print(path_split)
+    # print(qr_code)
+    # print(timestamp)
+    # print(tango_timestamp)
+
     
     # Getting last updated timestamp.
     last_updated, _ = get_last_updated()
@@ -271,12 +286,15 @@ def get_last_updated():
 if __name__ == "__main__":
     
     if len(sys.argv) != 2:
-        raise Exception("ERROR! Must specify what to update. [images|pointclouds|fusion|all]")
+        raise Exception("ERROR! Must specify what to update. [images|pointclouds|depth|fusion|all]")
 
     # Parse command line arguments.
-    update_jpgs = False
-    update_pcds = False
-    update_pcrgb = False
+    update_jpgs      = False
+    update_pcds      = False
+    update_pcrgb     = False
+    update_depth_png = False
+    update_depth_npy = False
+
     if sys.argv[1] == "images":
         print("Updating images only...")
         update_jpgs = True
@@ -286,14 +304,20 @@ if __name__ == "__main__":
     elif sys.argv[1] == "fusion": 
         print("Updateing pcrgb only...")
         update_pcrgb = True
+    elif sys.argv[1] == "depth":
+        print("Updating depth only ...")
+        # update_depth_npy = True
+        update_depth_png = True
     elif sys.argv[1] == "all":
         print("Updating all artifacts...")
-        update_jpgs = True
-        update_pcds = True
-        update_pcrgb = True
+        update_jpgs      = True
+        update_pcds      = True
+        update_pcrgb     = True
+        update_depth_npy = True
+        update_depth_png = True
     
     # Run the thing.
-    execute_command_update_artifacts(update_jpgs, update_pcds, update_pcrgb)
+    execute_command_update_artifacts(update_jpgs, update_pcds, update_pcrgb, update_depth_npy, update_depth_png)
                         
                         
                         
