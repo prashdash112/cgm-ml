@@ -362,7 +362,7 @@ if __name__ == "__main__":
         # preprocess_npy = True
     elif sys.argv[1] == "depth":
         print("Updating depth only...")
-        preprocess_png = True
+        preprocess_npy = True
     elif sys.argv[1] == "all":
         print("Updating all...")
         preprocess_jpgs = True

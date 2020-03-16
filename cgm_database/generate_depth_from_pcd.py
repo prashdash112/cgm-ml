@@ -51,6 +51,7 @@ def update_depth(pcd_paths, process_index):
         parent_folder = os.path.dirname(folder)
 
         depth_folder = parent_folder + '/depth'
+
         
         # print("depth folder: ")
         # print (depth_folder)
@@ -58,25 +59,30 @@ def update_depth(pcd_paths, process_index):
         # print(parent_folder)
 
         # output to 2nd ssd to speed up things
-        depth_folder = depth-folder.replace('whhdata', 'localssd2')
+        depth_folder = depth_folder.replace('whhdata', 'localssd2')
         # check if depth folder exists
         if not os.path.exists(depth_folder):
             os.mkdir(depth_folder)
         
         np_path  = depth_folder + "/" + pcd_name     # *.npy
-        np_path  = np_path.replace('ply', 'npy')
-        png_path = depth_folder + "/" + pcd_name     # *.png
-        png_path = png_path.replace('ply', 'png')
+        np_path  = np_path.replace('.ply', '.npy')
+        # png_path = depth_folder + "/" + pcd_name     # *.png
+        # png_path = png_path.replace('ply', 'png')
 
 
+        # png_path = png_path.replace('.png', '_all_channels.png')
+
+
+        # print(np_path)
 
         # check if the png already exists and in this case continue with the next file
-        if os.path.exists(png_path): 
-            # print("skipping this path" + str(png_path))
-            continue
+        # if os.path.exists(np_path): 
+        #     # print("skipping this path" + str(png_path))
+        #     continue
         
         # fusion.get_depth_image_from_point_cloud(calibration_file="dummy", pcd_file="/tmp/cloud_debug.ply", output_file="dummy")
-        utility.get_depth_channel(ply_path=pcd_input, output_path_np=np_path, output_path_png=png_path)
+        # utility.get_depth_channel(ply_path=pcd_input, output_path_np=np_path, output_path_png=png_path)
+        utility.get_all_channel(ply_path=pcd_input, output_path_np = np_path)
 
 
 def main():

@@ -86,6 +86,8 @@ def execute_command_update_artifacts(update_jpgs=False, update_pcds=False, updat
             
             person_path  = person_path.replace('localssd/', 'localssd2/')
 
+            print (person_path)
+
             # Find all artifacts for that person.
             artifact_paths = []
             for file_extension in file_extensions:
@@ -228,10 +230,10 @@ def get_default_values(file_path, table, db_connector):
     qr_code = path_split[3]
     timestamp = path_split[-1].split("_")[-3]
     tango_timestamp = path_split[-1].split("_")[-1][:-4]
-    # print(path_split)
-    # print(qr_code)
-    # print(timestamp)
-    # print(tango_timestamp)
+    print(path_split)
+    print(qr_code)
+    print(timestamp)
+    print(tango_timestamp)
 
     
     # Getting last updated timestamp.
@@ -306,8 +308,8 @@ if __name__ == "__main__":
         update_pcrgb = True
     elif sys.argv[1] == "depth":
         print("Updating depth only ...")
-        # update_depth_npy = True
-        update_depth_png = True
+        update_depth_npy = True
+        # update_depth_png = True
     elif sys.argv[1] == "all":
         print("Updating all artifacts...")
         update_jpgs      = True

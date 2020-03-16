@@ -58,22 +58,14 @@ def get_depth_image_from_point_cloud(calibration_file, pcd_file, output_file):
 
     print (cloud.points.values.shape)
 
-
-
-
-
-
-
-
-
     height = 172                                                            # todo: get this from calibration file
     width  = 224
 
     z      = (z - min(z)) / (max(z) - min(z))                  # normalize the data to 0 to 1
 
-    print (z)
+    # print (z)
 
-    print (z.size)
+    # print (z.size)
 
     # iterat of the points and calculat the x y coordinates in the image
     # get the data for calibration 

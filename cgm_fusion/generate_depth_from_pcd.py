@@ -43,6 +43,10 @@ from matplotlib import pyplot as plt
 
 
 # fusion.get_depth_image_from_point_cloud(calibration_file="dummy", pcd_file="/tmp/cloud_debug.ply", output_file="dummy")
-utility.get_depth_channel(ply_path="/tmp/cloud_debug.ply", output_path_np = "/tmp/output.npy", output_path_png="/tmp/output.png")
+# utility.get_depth_channel(ply_path="/tmp/cloud_debug.ply", output_path_np = "/tmp/output.npy", output_path_png="/tmp/output.png")
+# utility.get_rgbd_channel(ply_path="/tmp/cloud_debug.ply", output_path_np = "/tmp/output.npy")
 
-utility.get_viz_channel(ply_path="/tmp/cloud_debug.ply",  channel=4, output_path="/tmp/red.png")
+utility.get_all_channel(ply_path="/tmp/cloud_debug.ply", output_path_np = "/tmp/output.npy")
+
+
+# utility.get_viz_channel(ply_path="/tmp/cloud_debug.ply",  channel=4, output_path="/tmp/red.png")

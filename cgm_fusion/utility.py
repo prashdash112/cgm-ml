@@ -120,7 +120,12 @@ def get_depth_channel(ply_path, output_path_np, output_path_png):
         logging.error(str(e))
         logging.error(ply_path)
         
-        
+    print(cloud.points.values[:, 3])
+    r = cloud.points.values[:, 3]
+    print(min(r))
+    print(max(r))
+    print(np.mean(r))
+
         
     points = cloud.points.values[:, :3]                        # get x y z
     z      = cloud.points.values[:, 2]                   # get only z coordinate
@@ -158,6 +163,137 @@ def get_depth_channel(ply_path, output_path_np, output_path_png):
 
 
     return viz_image
+
+
+
+
+def get_rgbd_channel(ply_path, output_path_np):
+    channel = Channel.z
+    calibration_file =  '/whhdata/calibration.xml'
+    if not os.path.exists(calibration_file):                   # check if the califile exists
+        logging.error ('Calibration does not exist')
+        return 
+
+    # get a default black image
+    height         = 224                                       # todo remove magic numbers               
+    width          = 172                                       # todo remove magic numbers
+    nr_of_channels = 4
+    viz_image = np.zeros((height,width,nr_of_channels), np.float64)
+
+    try:
+        cloud  = PyntCloud.from_file(ply_path)                 # load the data from the files
+    except ValueError as e: 
+        logging.error(" Error reading point cloud ")
+        logging.error(str(e))
+        logging.error(ply_path)
+        
+        
+        
+    points = cloud.points.values[:, :3]                        # get x y z
+    z      = cloud.points.values[:, 2]                   # get only z coordinate
+    z      = (z - min(z)) / (max(z) - min(z))                  # normalize the data to 0 to 1
+    r      = cloud.points.values[:, 4]
+    g      = cloud.points.values[:, 5]
+    b      = cloud.points.values[:, 6]
+
+    # iterat of the points and calculat the x y coordinates in the image
+    # get the data for calibration 
+    im_coords = apply_projection(points)
+
+    # manipulate the pixels color value depending on the z coordinate
+    # TODO make this a function
+    for i, t in enumerate(im_coords):
+        x, y = t.squeeze()
+        x = int(np.round(x))
+        y = int(np.round(y))
+        if x >= 0 and x < height and y >= 0 and y < width:
+            viz_image[x,y, 0] = r[i]
+            viz_image[x,y, 1] = g[i]
+            viz_image[x,y, 2] = b[i]
+            viz_image[x,y, 3] = z[i] 
+
+
+
+
+    np.save(output_path_np, viz_image)
+    return viz_image
+
+
+
+def get_all_channel(ply_path, output_path_np):
+    channel = Channel.z
+    calibration_file =  '/whhdata/calibration.xml'
+    if not os.path.exists(calibration_file):                   # check if the califile exists
+        logging.error ('Calibration does not exist')
+        return 
+
+    # get a default black image
+    height         = 224                                       # todo remove magic numbers               
+    width          = 172                                       # todo remove magic numbers
+    nr_of_channels = 11
+    viz_image = np.zeros((height,width,nr_of_channels), np.float64)
+
+    try:
+        cloud  = PyntCloud.from_file(ply_path)                 # load the data from the files
+    except ValueError as e: 
+        logging.error(" Error reading point cloud ")
+        logging.error(str(e))
+        logging.error(ply_path)
+        
+        
+        
+    points = cloud.points.values[:, :3]                        # get x y z
+    x      = cloud.points.values[:, 0]
+    y      = cloud.points.values[:, 1]
+    z      = cloud.points.values[:, 2]                   # get only z coordinate
+    z      = (z - min(z)) / (max(z) - min(z))                  # normalize the data to 0 to 1
+
+    r      = cloud.points.values[:, 4]
+    g      = cloud.points.values[:, 5]
+    b      = cloud.points.values[:, 6]
+
+    seg    = cloud.points.values[:, 7]
+    conf   = cloud.points.values[:, 3]
+
+    nx     = cloud.points.values[:, 8]
+    nx     = cloud.points.values[:, 9]
+    nz     = cloud.points.values[:, 10]
+
+
+    # iterat of the points and calculat the x y coordinates in the image
+    # get the data for calibration 
+    im_coords = apply_projection(points)
+
+    # manipulate the pixels color value depending on the z coordinate
+    # TODO make this a function
+    for i, t in enumerate(im_coords):
+        x, y = t.squeeze()
+        x = int(np.round(x))
+        y = int(np.round(y))
+        if x >= 0 and x < height and y >= 0 and y < width:
+            viz_image[x,y, 0] = x[i]
+            viz_image[x,y, 1] = y[i]
+            viz_image[x,y, 2] = z[i]
+            
+            viz_image[x,y, 3] = r[i] 
+            viz_image[x,y, 4] = g[i] 
+            viz_image[x,y, 5] = b[i] 
+            
+            viz_image[x,y, 6] = seg[i] 
+            viz_image[x,y, 7] = conf[i] 
+
+            viz_image[x,y, 8] = nx[i]             
+            viz_image[x,y, 9] = ny[i]             
+            viz_image[x,y,10] = nz[i]             
+
+
+
+
+    np.save(output_path_np, viz_image)
+    return viz_image
+
+
+
 
 
 '''
