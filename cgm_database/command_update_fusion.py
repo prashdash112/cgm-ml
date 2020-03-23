@@ -318,10 +318,13 @@ def update_qrs(unique_qr_codes, process_index):
             pcd_file = pcd_path[i]
             pcd_file = pcd_file[0]
             jpg_file = rgb_path[nn]
+            
+
+            # print (png_file)
 
             # manipulate the file names for the database
-            jpg_file = jpg_file.replace("/whhdata/", "/localssd/")
-            png_file = pcd_file.replace("/whhdata/", "/localssd/")
+            jpg_file = jpg_file.replace("/localssd/", "/localssd/")
+            png_file = pcd_file #.replace("/whhdata/", "/localssd/")
 
             
             # check if a segmentation for the found jpg exists
@@ -357,9 +360,18 @@ def update_qrs(unique_qr_codes, process_index):
             pc_filename = pc_filename.replace("pc_",   "pcrgb_");
 
             # write the data to the new storage
-            pc_filename = pc_filename.replace("/whhdata/qrcode/", "/localssd/qrcode/")
+            pc_filename = pc_filename.replace("/whhdata/qrcode/", "/localssd2/qrcode/")
 
-            logging.info("writing new fused data to: " + pc_filename)
+
+            # check if folder exists
+            pc_folder = os.path.dirname(pc_filename)
+            if not(os.path.isfile(pc_folder)): 
+                logging.info("Folder does not exist for " + str(pc_filename))
+                os.makedirs(pc_folder, exist_ok=True)
+                logging.info("Created folder " + str(pc_folder))
+
+
+            logging.info("Going to writing new fused data to: " + pc_filename)
             
             
             try: 

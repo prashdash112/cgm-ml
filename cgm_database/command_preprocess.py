@@ -24,12 +24,13 @@ import sys
 sys.path.insert(0, "..")
 from cgmcore import utils
 import numpy as np
+import cv2
 import datetime
 import pickle
 import config
 
 
-def execute_command_preprocess(preprocess_pcds=True, preprocess_ply=False, preprocess_jpgs=False, path_suffix=""):
+def execute_command_preprocess(preprocess_pcds=True, preprocess_ply=False, preprocess_jpgs=False, preprocess_npy=False, preprocess_png=False, path_suffix=""):
     print("Preprocessing data-set...")
     
     print("Using '{}'".format(config.preprocessed_root_path))
@@ -52,6 +53,8 @@ def execute_command_preprocess(preprocess_pcds=True, preprocess_ply=False, prepr
         os.mkdir(os.path.join(base_path, "ply"))
     if preprocess_jpgs == True:
         os.mkdir(os.path.join(base_path, "jpg"))
+    if preprocess_npy == True:
+        os.mkdir(os.path.join(base_path, "npy"))
 
 
     print("Writing preprocessed data to {}...".format(base_path))
@@ -168,6 +171,101 @@ def execute_command_preprocess(preprocess_pcds=True, preprocess_ply=False, prepr
         
         # Start multiprocessing.
         utils.multiprocess(entries, process_pcd_entry)
+
+
+    # Process depth images numpy array
+    if preprocess_npy == True:
+        
+        # Get entries.
+        sql_statement = """
+            SELECT artifact_path, qr_code, height, weight 
+            FROM artifacts_with_targets 
+            WHERE type='depth_npy'
+            AND status='standing'
+            ;
+            """
+        main_connector = dbutils.connect_to_main_database()
+        entries = main_connector.execute(sql_statement, fetch_all=True)
+        print("Found {} depth_npy. Processing...".format(len(entries)))
+        
+        # Method for processing a single entry.
+        def process_pcd_entry(entry):
+            path, qr_code, height, weight = entry
+            if os.path.exists(path) == False:
+                print("\n", "File {} does not exist!".format(path), "\n")
+                return
+            try:
+                print(path)
+                np_array = np.load(path)
+                print("opened file")
+                targets = np.array([height, weight])
+                pickle_filename = os.path.basename(path).replace(".npy", ".p")
+                qrcode_path = os.path.join(base_path, "npy", qr_code)
+                if os.path.exists(qrcode_path) == False:
+                    os.mkdir(qrcode_path)
+                pickle_output_path = os.path.join(qrcode_path, pickle_filename)
+                pickle.dump((np_array, targets), open(pickle_output_path, "wb"))
+            except:
+                print("exception fails")
+                pass
+        
+        # Start multiprocessing.
+        utils.multiprocess(entries, process_pcd_entry)
+
+    # print(preprocess_png)
+    # preprocess_png = True
+    # Process the filtered depth pngs.
+    if preprocess_png == True:
+        
+
+        # Get entries.
+        sql_statement = """
+            SELECT artifact_path, qr_code, height, weight 
+            FROM artifacts_with_targets 
+            WHERE type='depth_png'
+            AND status='standing'
+            ;
+            """
+        main_connector = dbutils.connect_to_main_database()
+        entries = main_connector.execute(sql_statement, fetch_all=True)
+        print("Found {} depth_npy. Processing...".format(len(entries)))
+        
+        # Method for processing a single entry.
+        def process_pcd_entry(entry):
+            path, qr_code, height, weight = entry
+            if os.path.exists(path) == False:
+                print("\n", "File {} does not exist!".format(path), "\n")
+                return
+            try:
+                print(path)
+                np_array = cv2.imread(path,  cv2.CV_8U)
+                print(type(np_array))
+                print("opened file")
+                print(np_array.shape)
+                targets = np.array([height, weight])
+                pickle_filename = os.path.basename(path).replace(".png", ".p")
+                qrcode_path = os.path.join(base_path, "png", qr_code)
+                print(qrcode_path)
+                # if os.path.exists(qrcode_path) == False:
+                try:
+                    os.makedirs(qrcode_path, exist_ok=True)
+                except: 
+                    print("can not create folder")
+                    pass
+                    # print("path created")
+                    # os.mkdir(qrcode_path)
+                print("after path created")
+
+                print("in advance to pickle")
+                pickle_output_path = os.path.join(qrcode_path, pickle_filename)
+                print("created pickle")
+                pickle.dump((np_array, targets), open(pickle_output_path, "wb"))
+            except:
+                print("Failed to import image")
+                pass
+        
+        # Start multiprocessing.
+        utils.multiprocess(entries, process_pcd_entry)
         
 # TODO remove this soon        
 def filterpcds(
@@ -241,12 +339,15 @@ def filterjpgs(
 if __name__ == "__main__":
     
     if len(sys.argv) < 2:
-        raise Exception("ERROR! Must specify what to update. [images|pointclouds|fusion|all]")
+        raise Exception("ERROR! Must specify what to update. [images|pointclouds|fusion|depth|all]")
 
     # Parse command line arguments.
     preprocess_pcds = False
     preprocess_jpgs = False
     preprocess_ply  = False
+    preprocess_npy  = False
+    preprocess_png  = False
+
     if sys.argv[1] == "images":
         print("Updating images only...")
         preprocess_jpgs = True
@@ -256,14 +357,22 @@ if __name__ == "__main__":
     elif sys.argv[1] == "fusion":
         print("Updating fusion only...")
         preprocess_ply = True
+    # elif sys.argv[1] == "depth":
+    #     print("Updating depth only...")
+        # preprocess_npy = True
+    elif sys.argv[1] == "depth":
+        print("Updating depth only...")
+        preprocess_npy = True
     elif sys.argv[1] == "all":
         print("Updating all...")
         preprocess_jpgs = True
         preprocess_pcds = True
         preprocess_ply  = True
+        preprocess_npy  = True
+        preprocess_png  = True
     
     path_suffix = ""
     if len(sys.argv) > 2:
         path_suffix = sys.argv[2]
     
-    execute_command_preprocess(preprocess_pcds, preprocess_ply, preprocess_jpgs, path_suffix)
+    execute_command_preprocess(preprocess_pcds, preprocess_ply, preprocess_jpgs, preprocess_npy, preprocess_png, path_suffix)
