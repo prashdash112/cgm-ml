@@ -6,7 +6,7 @@ import os, sys
 
 if len(sys.argv) != 2:
   print('You did not enter input folder')
-  print('E.g.: python convertall.py pcd')
+  print('E.g.: python convertpcd2depth.py pcd')
   sys.exit(1)
 
 input = sys.argv[1]
