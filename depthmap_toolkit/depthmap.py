@@ -64,87 +64,63 @@ def focusObjectDetection(output):
   height = utils.getHeight()
   
   #parameters
-  backgroundThreshold = 0.5 #threshold to differ object and background (hard edge)
+  backgroundThreshold = 0.7 #threshold to differ object and background (hard edge)
   floorThreshold = 0.25 #threshold to differ object and floor (soft edge)
   depthThreshold = 0.3 #threshold to differ object and background (in meters)
   offset = 8 #amount of pixels from top where starts the selection (to skip unwanted edges)
   y1 = 8 #amount of pixels from left where starts the selection (to skip unwanted edges)
   y2 = height - 8 #amount of pixels from left where ends the selection (to skip unwanted edges)
   
-  #top-down lines left part
-  for y in range((y1 + y2) / 2, y1, -1):
-    #find top of the object
-    l = offset
-    for x in range(offset, width):
-      if (output[x][height - y - 1][1] > backgroundThreshold):
-        l = x
-        break
-    #find bottom of the object
-    r = offset
-    for x in range(offset, width):
-      if (output[width - x - 1][height - y - 1][1] > floorThreshold):
-        r = width - x - 1
-        break
-    #connect top and down with a line
-    if (l >= r):
-      break;
-    for x in range(l, r):
-      output[x][height - y - 1][2] = 1
-  
-  #top-down lines right part
-  for y in range((y1 + y2) / 2, y2):
-    #find top of the object
-    l = offset
-    for x in range(offset, width):
-      if (output[x][height - y - 1][1] > backgroundThreshold):
-        l = x
-        break
-    #find bottom of the object
-    r = offset
-    for x in range(offset, width):
-      if (output[width - x - 1][height - y - 1][1] > floorThreshold):
-        r = width - x - 1
-        break
-    #connect top and down with a line
-    if (l >= r):
-      break;
-    for x in range(l, r):
-      output[x][height - y - 1][2] = 1
-      
+  #top-down lines
+  for p in range(2):
+    end = y1
+    step = -1
+    if p == 1:
+      end = y2
+      step = 1
+    for y in range((y1 + y2) / 2, end, step):
+      #find top of the object
+      l = offset
+      for x in range(offset, width):
+        if (output[x][height - y - 1][1] > backgroundThreshold):
+          l = x
+          break
+      #find bottom of the object
+      r = offset
+      for x in range(offset, width):
+        if (output[width - x - 1][height - y - 1][1] > floorThreshold):
+          r = width - x - 1
+          break
+      #connect top and down with a line
+      if (l >= r):
+        break;
+      for x in range(l, r):
+        output[x][height - y - 1][2] = 1    
+  #return output
+
   #top-down cleaning
   for x in range(0, width):
-    #clean left part
-    current = 0
-    valid = 1
-    for y in range((y1 + y2) / 2, y1, -1):
-      depth = utils.parseDepth(x, y)
-      if (current == 0):
-        current = depth
-      if (depth):
-        if (abs(depth - current) > depthThreshold):
-          valid = 0
-        else:
-          current = depth
-          valid = 1
-      if (depth == 0 or valid == 0):
-        output[x][height - y - 1][2] = 0
-        
-    #clean right part
-    current = 0
-    valid = 1
-    for y in range((y1 + y2) / 2, y2):
-      depth = utils.parseDepth(x, y)
-      if (current == 0):
-        current = depth
-      if (depth):
-        if (abs(depth - current) > depthThreshold):
-          valid = 0
-        else:
-          current = depth
-          valid = 1
-      if (depth == 0 or valid == 0):
-        output[x][height - y - 1][2] = 0
+    for p in range(2):
+      end = y1
+      step = -1
+      if p == 1:
+        end = y2
+        step = 1
       
+      current = 0
+      valid = 1
+      for y in range((y1 + y2) / 2, end, step):
+        depth = utils.parseDepth(x, y)
+        if (current == 0):
+          current = depth
+        if (depth):
+          if (abs(depth - current) > depthThreshold):
+            valid = 0
+          else:
+            current = depth
+            valid = 1
+        if (depth == 0 or valid == 0):
+          output[x][height - y - 1][2] = 0
 
   return output
     
