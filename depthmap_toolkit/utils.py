@@ -27,9 +27,12 @@ def convert2Dto3D(intrisics, x, y, z):
 def convert2Dto3DOriented(intrisics, x, y, z):
   res = convert2Dto3D(calibration[1], x, y, z)
   if res:
-    res = point_rotation_by_quaternion(res, rotation)
-    for i in range(0, 2):
-      res[i] = res[i] + position[i]
+    try:
+      res = point_rotation_by_quaternion(res, rotation)
+      for i in range(0, 2):
+        res[i] = res[i] + position[i]
+    except NameError:
+        i = 0
   return res
 
 #convert point into 2D
