@@ -1,3 +1,14 @@
+def quaternion_mult(q,r):
+    return [r[0]*q[0]-r[1]*q[1]-r[2]*q[2]-r[3]*q[3],
+            r[0]*q[1]+r[1]*q[0]-r[2]*q[3]+r[3]*q[2],
+            r[0]*q[2]+r[1]*q[3]+r[2]*q[0]-r[3]*q[1],
+            r[0]*q[3]-r[1]*q[2]+r[2]*q[1]+r[3]*q[0]]
+
+def point_rotation_by_quaternion(point,q):
+    r = [0] + point
+    q_conj = [q[0],-q[1],-q[2],-q[3]]
+    return quaternion_mult(quaternion_mult(q,r),q_conj)[1:]
+
 #convert point into 3D
 def convert2Dto3D(intrisics, x, y, z):
   fx = intrisics[0] * float(width)
@@ -11,6 +22,15 @@ def convert2Dto3D(intrisics, x, y, z):
   output.append(ty)
   output.append(z)
   return output
+
+#convert point into 3D oriented
+def convert2Dto3DOriented(intrisics, x, y, z):
+  res = convert2Dto3D(calibration[1], x, y, z)
+  if res:
+    res = point_rotation_by_quaternion(res, rotation)
+    for i in range(0, 2):
+      res[i] = res[i] + position[i]
+  return res
 
 #convert point into 2D
 def convert3Dto2D(intrisics, x, y, z):
@@ -33,9 +53,9 @@ def exportOBJ(filename):
       for y in range(2, height - 2):
         depth = parseDepth(x, y)
         if depth:
-         res = convert2Dto3D(calibration[1], x, y, depth)
+         res = convert2Dto3DOriented(calibration[1], x, y, depth)
          if res:
-          file.write('v ' + str(res[0]) + ' ' + str(-res[2]) + ' ' + str(res[1]) + '\n')
+          file.write('v ' + str(res[0]) + ' ' + str(res[1]) + ' ' + str(res[2]) + '\n')
     print('Pointcloud exported into ' + filename)
     file.close()
 
@@ -108,15 +128,18 @@ def parseConfidence(tx, ty):
 
 #parse depth data
 def parseData(filename):
-  global width, height, depthScale, maxConfidence, data
+  global width, height, depthScale, maxConfidence, data, position, rotation
   with open('data', 'rb') as file:
-    line = str(file.readline())#[2:-3]
+    line = str(file.readline())[:-3]
     header = line.split('_')
     res = header[0].split('x')
     width = int(res[0])
     height = int(res[1])
     depthScale = float(header[1])
     maxConfidence = float(header[2])
+    if len(header) >= 10:
+      position = (float(header[7]), float(header[8]), float(header[9]))
+      rotation = (float(header[4]), float(header[5]), float(header[6]), float(header[3]))
     data = file.read()
     file.close()
 

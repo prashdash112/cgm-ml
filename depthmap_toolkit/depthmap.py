@@ -57,74 +57,6 @@ def process(plt, dir, depth, rgb):
   global calibration
   calibration = utils.parseCalibration(dir + '/camera_calibration.txt')
 
-#mask object in the center of the depthmap
-def focusObjectDetection(output):
-  
-  width = utils.getWidth()
-  height = utils.getHeight()
-  
-  #parameters
-  backgroundThreshold = 0.7 #threshold to differ object and background (hard edge)
-  floorThreshold = 0.25 #threshold to differ object and floor (soft edge)
-  depthThreshold = 0.3 #threshold to differ object and background (in meters)
-  offset = 8 #amount of pixels from top where starts the selection (to skip unwanted edges)
-  y1 = 8 #amount of pixels from left where starts the selection (to skip unwanted edges)
-  y2 = height - 8 #amount of pixels from left where ends the selection (to skip unwanted edges)
-  
-  #top-down lines
-  for p in range(2):
-    end = y1
-    step = -1
-    if p == 1:
-      end = y2
-      step = 1
-    for y in range((y1 + y2) / 2, end, step):
-      #find top of the object
-      l = offset
-      for x in range(offset, width):
-        if (output[x][height - y - 1][1] > backgroundThreshold):
-          l = x
-          break
-      #find bottom of the object
-      r = offset
-      for x in range(offset, width):
-        if (output[width - x - 1][height - y - 1][1] > floorThreshold):
-          r = width - x - 1
-          break
-      #connect top and down with a line
-      if (l >= r):
-        break;
-      for x in range(l, r):
-        output[x][height - y - 1][2] = 1    
-  #return output
-
-  #top-down cleaning
-  for x in range(0, width):
-    for p in range(2):
-      end = y1
-      step = -1
-      if p == 1:
-        end = y2
-        step = 1
-      
-      current = 0
-      valid = 1
-      for y in range((y1 + y2) / 2, end, step):
-        depth = utils.parseDepth(x, y)
-        if (current == 0):
-          current = depth
-        if (depth):
-          if (abs(depth - current) > depthThreshold):
-            valid = 0
-          else:
-            current = depth
-            valid = 1
-        if (depth == 0 or valid == 0):
-          output[x][height - y - 1][2] = 0
-
-  return output
-    
-
 #show edges
 def showEdges():
   fig = plt.figure()
@@ -132,18 +64,26 @@ def showEdges():
   width = utils.getWidth()
   height = utils.getHeight()
   output = np.zeros((width, height, 3))
-  for x in range(1, width - 1):
-    for y in range(1, height - 1):
-      depth = utils.parseDepth(x, y)
+  for x in range(2, width - 2):
+    for y in range(2, height - 2):
+      d = utils.parseDepth(x, y)
       mx = utils.parseDepth(x - 1, y)
       px = utils.parseDepth(x + 1, y)
       my = utils.parseDepth(x, y - 1)
       py = utils.parseDepth(x, y + 1)
+      depth = utils.convert2Dto3DOriented(calibration[1], x, y, d)[1]
+      mx = utils.convert2Dto3DOriented(calibration[1], x - 1, y, mx)[1]
+      px = utils.convert2Dto3DOriented(calibration[1], x + 1, y, px)[1]
+      my = utils.convert2Dto3DOriented(calibration[1], x, y - 1, my)[1]
+      py = utils.convert2Dto3DOriented(calibration[1], x, y + 1, py)[1]
       edge = (abs(depth - mx) + abs(depth - px) + abs(depth - my) + abs(depth - py))
-      if edge > 0.015: #noise filter
-        output[x][height - y - 1][1] = edge * 10
+      if d:
+        output[x][height - y - 1][0] = depth
+      output[x][height - y - 1][1] = edge * 10
 
-  output = focusObjectDetection(output)
+  for x in range(1, width - 1):
+    for y in range(1, height - 1):
+      output[x][height - y - 1][0] = 0
   plt.imshow(output, extent=[0, height, 0, width])
 
 #show result
