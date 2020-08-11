@@ -17,8 +17,8 @@ def process(calibration, pcd, depthfile):
   output = np.zeros((width, height, 3))
   for p in points:
     v = utils.convert3Dto2D(calibration[1], p[0], p[1], p[2])
-    x = round(width - v[0] - 1)
-    y = round(height - v[1] - 1)
+    x = int(width - v[0] - 1)
+    y = int(height - v[1] - 1)
     if x >= 0 and y >= 0 and x < width and y < height:
       output[x][y][0] = p[3]
       output[x][y][2] = p[2]
