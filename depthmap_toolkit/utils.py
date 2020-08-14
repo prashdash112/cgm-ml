@@ -60,7 +60,6 @@ def exportOBJ(filename):
          if res:
           file.write('v ' + str(res[0]) + ' ' + str(res[1]) + ' ' + str(res[2]) + '\n')
     print('Pointcloud exported into ' + filename)
-    file.close()
 
 #write obj
 def exportPCD(filename):
@@ -86,7 +85,6 @@ def exportPCD(filename):
           if res:
             file.write(str(-res[0]) + ' ' + str(res[1]) + ' ' + str(res[2]) + ' ' + str(parseConfidence(x, y)) + '\n')
     print('Pointcloud exported into ' + filename)
-    file.close()
 
 #get valid points in depthmaps
 def getCount():

@@ -33,7 +33,6 @@ def process(calibration, pcd, depthfile):
         file.write(chr(depth / 256))
         file.write(chr(depth % 256))
         file.write(chr(confidence))
-    file.close()
 
   #zip data
   with zipfile.ZipFile(depthfile, "w", zipfile.ZIP_DEFLATED) as zip:
