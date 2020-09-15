@@ -22,13 +22,13 @@ setup(
     version=__version__,
     description='Core module of Child Growth Monitor machine learning.',
     long_description=long_description,
-    url='https://github.com/ai-guru/cgmcore',
-    download_url='https://github.com/ai-guru/cgmcore/tarball/' + __version__,
-    license='BSD',
+    url='https://github.com/Welthungerhilfe/cgm-ml',
+    license='GPL-3.0',
     classifiers=[
       'Development Status :: 3 - Alpha',
-      'Intended Audience :: Developers',
+      'Intended Audience :: Science/Research'
       'Programming Language :: Python :: 3',
+      'License :: OSI Approved :: GNU General Public License v3 (GPLv3)'
     ],
     keywords='',
     packages=find_packages(exclude=['docs', 'tests*']),
@@ -36,5 +36,6 @@ setup(
     author='Deutsche Welthungerhilfe',
     install_requires=install_requires,
     dependency_links=dependency_links,
-    author_email='mmatiaschek@gmail.com'
+    author_email='info@childgrowthmonitor.org',
+    setup_requires=['wheel']
 )
