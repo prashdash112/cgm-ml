@@ -8,12 +8,12 @@ import pcd2depth
 
 if len(sys.argv) != 2:
     print('You did not enter input folder')
-    print('E.g.: python convertpcd2depth.py pcd')
+    print('Usage: python convertpcd2depth.py <pcd file or directory>')
     sys.exit(1)
 
-input = sys.argv[1]
+pcd_file_or_dir = sys.argv[1]
 pcd = []
-for (dirpath, dirnames, filenames) in walk(input):
+for (dirpath, dirnames, filenames) in walk(pcd_file_or_dir):
     pcd = filenames
 pcd.sort()
 try:
@@ -22,7 +22,7 @@ except:
     print('no previous data to delete')
 os.mkdir('output')
 os.mkdir('output/depth')
-copyfile(input + '/../camera_calibration.txt', 'output/camera_calibration.txt')
+copyfile(pcd_file_or_dir + '/../camera_calibration.txt', 'output/camera_calibration.txt')
 for i in range(len(pcd)):
-    pcd2depth.process(input + '/../camera_calibration.txt', input + '/' + pcd[i], 'output/depth/' + pcd[i] + '.depth')
+    pcd2depth.process(pcd_file_or_dir + '/../camera_calibration.txt', pcd_file_or_dir + '/' + pcd[i], 'output/depth/' + pcd[i] + '.depth')
 print('Data exported into folder output')
