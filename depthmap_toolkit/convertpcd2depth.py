@@ -12,10 +12,10 @@ if len(sys.argv) != 2:
     sys.exit(1)
 
 pcd_file_or_dir = sys.argv[1]
-pcd = []
+pcds = []
 for (dirpath, dirnames, filenames) in walk(pcd_file_or_dir):
-    pcd = filenames
-pcd.sort()
+    pcds = filenames
+pcds.sort()
 try:
     shutil.rmtree('output')
 except:
@@ -23,6 +23,9 @@ except:
 os.mkdir('output')
 os.mkdir('output/depth')
 copyfile(pcd_file_or_dir + '/../camera_calibration.txt', 'output/camera_calibration.txt')
-for i in range(len(pcd)):
-    pcd2depth.process(pcd_file_or_dir + '/../camera_calibration.txt', pcd_file_or_dir + '/' + pcd[i], 'output/depth/' + pcd[i] + '.depth')
+for i in range(len(pcds)):
+    calibration = pcd_file_or_dir + '/../camera_calibration.txt'
+    pcd = pcd_file_or_dir + '/' + pcds[i]
+    depthfile = 'output/depth/' + pcds[i] + '.depth'
+    pcd2depth.process(calibration, pcd, depthfile)
 print('Data exported into folder output')
