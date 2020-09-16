@@ -3,15 +3,16 @@ import numpy as np
 import utils
 import zipfile
 
+
 def process(calibration, pcd, depthfile):
 
-    #read PCD and calibration
+    # read PCD and calibration
     calibration = utils.parseCalibration(calibration)
     points = utils.parsePCD(pcd)
     utils.setWidth(int(240 * 0.75))
     utils.setHeight(int(180 * 0.75))
 
-    #convert to depthmap
+    # convert to depthmap
     width = utils.getWidth()
     height = utils.getHeight()
     output = np.zeros((width, height, 3))
@@ -23,23 +24,23 @@ def process(calibration, pcd, depthfile):
             output[x][y][0] = p[3]
             output[x][y][2] = p[2]
 
-    #write depthmap
-    with open('data', 'wb') as file:
-        file.write(str(width) + 'x' + str(height) + '_0.001_255\n')
+    # write depthmap
+    with open('data', 'wb') as f:
+        f.write(str(width) + 'x' + str(height) + '_0.001_255\n')
         for y in range(height):
             for x in range(width):
                 depth = int(output[x][y][2] * 1000)
                 confidence = int(output[x][y][0] * 255)
-                file.write(chr(depth / 256))
-                file.write(chr(depth % 256))
-                file.write(chr(confidence))
+                f.write(chr(depth / 256))
+                f.write(chr(depth % 256))
+                f.write(chr(confidence))
 
-    #zip data
-    with zipfile.ZipFile(depthfile, "w", zipfile.ZIP_DEFLATED) as zip:
-        zip.write('data', 'data')
-        zip.close()
+    # zip data
+    with zipfile.ZipFile(depthfile, "w", zipfile.ZIP_DEFLATED) as zip_:
+        zip_.write('data', 'data')
+        zip_.close()
 
-    #visualsiation for debug
+    # visualsiation for debug
     #print str(width) + "x" + str(height)
     #plt.imshow(output)
     #plt.show()
