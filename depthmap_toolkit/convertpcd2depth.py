@@ -20,8 +20,7 @@ try:
     shutil.rmtree('output')
 except:
     print('no previous data to delete')
-os.mkdir('output')
-os.mkdir('output/depth')
+os.makedirs('output/depth')
 copyfile(pcd_file_or_dir + '/../camera_calibration.txt', 'output/camera_calibration.txt')
 for i in range(len(pcds)):
     calibration = pcd_file_or_dir + '/../camera_calibration.txt'
