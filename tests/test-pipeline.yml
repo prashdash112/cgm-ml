@@ -17,7 +17,7 @@ jobs:
     displayName: 'TestPipeline for cgm-ml-service'
   
   - bash: |
-      cd test
+      cd tests
       ls -l
       source /usr/share/miniconda/etc/profile.d/conda.sh
       which conda
