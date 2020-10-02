@@ -1,0 +1,41 @@
+trigger:
+  batch: true
+  branches:
+    include:
+    - test-pipeline
+
+jobs:
+- job: EvaluationJob
+  timeoutInMinutes: 300
+  cancelTimeoutInMinutes: 2
+
+  pool:
+    vmImage: 'Ubuntu-16.04'
+
+  steps:
+  - script: echo Hello, Test Pipeline!
+    displayName: 'TestPipeline for cgm-ml-service'
+  
+  - bash: |
+      cd test
+      ls -l
+      source /usr/share/miniconda/etc/profile.d/conda.sh
+      which conda
+      conda env create -f environment.yml
+      conda env list
+      jupyter kernelspec list
+      conda activate CGMEvaluationPipeline
+      conda list
+      conda list | grep nbconvert
+      conda list | grep papermill
+      jupyter kernelspec list
+    displayName: 'Environment Creation'
+
+  - bash: |
+      cd test
+      ls -l
+      source /usr/share/miniconda/etc/profile.d/conda.sh
+      conda activate CGMEvaluationPipeline
+      echo Executing evaluation.ipynb
+      papermill evaluation.ipynb evaluation_Output.ipynb --log-output --no-progress-bar -k python3 
+    displayName: 'evaluation.ipynb'
