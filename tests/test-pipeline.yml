@@ -32,7 +32,7 @@ jobs:
     displayName: 'Environment Creation'
 
   - bash: |
-      cd test
+      cd tests
       ls -l
       source /usr/share/miniconda/etc/profile.d/conda.sh
       conda activate CGMEvaluationPipeline
