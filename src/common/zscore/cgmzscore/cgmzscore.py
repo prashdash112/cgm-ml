@@ -325,16 +325,16 @@ class Chart():
 
     def zScore_chart(self, chart=None, weight=None, age_in_days=None, sex=None, height=None):
         if(chart == 'wfa_boys' or chart == 'wfa_girls' or chart == 'lhfa_boys' or chart == 'lhfa_girls'):
-            df = pd.read_json('tables/' + chart + '_0_5_zscores.json')
+            df = pd.read_json(str(module_dir) + '/tables/' + chart + '_0_5_zscores.json')
             x = df['Day'].values.tolist()
         elif(chart == 'wfl_boys' or chart == 'wfl_girls'):
-            df = pd.read_json('tables/' + chart + '_0_2_zscores.json')
+            df = pd.read_json(str(module_dir) + 'tables/' + chart + '_0_2_zscores.json')
             x = df['Length'].values.tolist()
         elif(chart == 'wfh_boys_2_5' or chart == 'wfh_girls_2_5'):
-            df = pd.read_json('tables/' + chart + '_zscores.json')
+            df = pd.read_json(str(module_dir) + 'tables/' + chart + '_zscores.json')
             x = df['Height'].values.tolist()
         elif(chart == 'wfh_boys_0_5' or chart == 'wfh_girls_0_5'):
-            df = pd.read_json('tables/' + chart + '_zscores.json')
+            df = pd.read_json(str(module_dir) + 'tables/' + chart + '_zscores.json')
             x = df['Height'].values.tolist()
 
         a = df['SD3'].values.tolist()
