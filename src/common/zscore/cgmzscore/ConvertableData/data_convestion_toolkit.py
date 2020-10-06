@@ -26,7 +26,7 @@ zscore_type = sys.argv[4]
 
 
 def convertTxtToJSON(percentile_data_path, SD_data_path, output_file_name, zscore_type):
-    value = []
+    LMS_SD_data = []
 
     percentile_data_path = REPO_DIR + '/ConvertableData/' + percentile_data_path
     SD_data_path = REPO_DIR + '/ConvertableData/' + SD_data_path
@@ -49,9 +49,9 @@ def convertTxtToJSON(percentile_data_path, SD_data_path, output_file_name, zscor
             else:
                 g = float("{0:.5f}". format(result[j][i]))
             dict[j] = str(g)
-        value.append(dict)
+        LMS_SD_data.append(dict)
     with open(output_file_name, 'w') as outfile:
-        json.dump(value, outfile, indent=4)
+        json.dump(LMS_SD_data, outfile, indent=4)
 
 
 if __name__ == "__main__":
