@@ -24,7 +24,7 @@ def test_zScore_wfa():
         g = float("{0:.9f}". format(df['WEIGHT'][i]))
         v = Calculator().zScore_wfa(weight=str(g), height=str(
             df['HEIGHT'][i]), sex=sex, age_in_days=str((df['_agedays'][i])))
-        ans = float("{0:.2f}". format(abs(v-df['_ZWEI'][i])))
+        ans = float("{0:.2f}". format(abs(v - df['_ZWEI'][i])))
         assert ans <= 0.01
 
 
@@ -46,7 +46,7 @@ def test_zScore_lhfa():
 
         print(g)
 
-        ans = float("{0:.2f}". format(abs(v-df['_ZLEN'][i])))
+        ans = float("{0:.2f}". format(abs(v - df['_ZLEN'][i])))
         assert ans <= 0.01
 
 
@@ -67,8 +67,9 @@ def test_zScore_wfh():
         v = Calculator().zScore_wfh(height=str(g), weight=str(
             t), sex=sex, age_in_days=str((df['_agedays'][i])))
 
-        ans = float("{0:.2f}". format(abs(v-df['_ZWFL'][i])))
+        ans = float("{0:.2f}". format(abs(v - df['_ZWFL'][i])))
         assert ans <= 0.01
+
 
 def test_zScore_wfl():
     for i in range(len(df)):
@@ -87,5 +88,5 @@ def test_zScore_wfl():
         v = Calculator().zScore_wfl(height=str(g), weight=str(
             t), sex=sex, age_in_days=str((df['_agedays'][i])))
 
-        ans = float("{0:.2f}". format(abs(v-df['_ZWFL'][i])))
+        ans = float("{0:.2f}". format(abs(v - df['_ZWFL'][i])))
         assert ans <= 0.01

@@ -4,8 +4,6 @@ import os
 from decimal import Decimal as D
 import json
 import numpy as np
-from scipy import ndimage
-
 
 module_dir = os.path.split(os.path.abspath(__file__))[0]
 
@@ -104,9 +102,9 @@ class Calculator(object):
     def __init__(self):
 
         WHO_tables = [
-            'wfl_boys_0_2_zscores.json',  'wfl_girls_0_2_zscores.json',
-            'wfh_boys_2_5_zscores.json',  'wfh_girls_2_5_zscores.json',
-            'wfa_boys_0_5_zscores.json',  'wfa_girls_0_5_zscores.json',
+            'wfl_boys_0_2_zscores.json', 'wfl_girls_0_2_zscores.json',
+            'wfh_boys_2_5_zscores.json', 'wfh_girls_2_5_zscores.json',
+            'wfa_boys_0_5_zscores.json', 'wfa_girls_0_5_zscores.json',
             'lhfa_boys_0_5_zscores.json', 'lhfa_girls_0_5_zscores.json', ]
 
         table_dir = os.path.join(module_dir, 'tables')
@@ -233,9 +231,9 @@ class Calculator(object):
         elif(chart == 'lhfa'):
             y = D(height)
 
-        numerator = ((y/median)**skew)-D(1.0)
-        denomenator = skew*cofficient
-        zScore = numerator/denomenator
+        numerator = ((y / median)**skew) - D(1.0)
+        denomenator = skew * cofficient
+        zScore = numerator / denomenator
 
         #            _
         #           |
@@ -255,17 +253,17 @@ class Calculator(object):
         #           |_
 
         def calc_stdev(sd):
-            value = (1+(skew*cofficient*sd))**(1/skew)
-            stdev = median*value
+            value = (1 + (skew * cofficient * sd))**(1 / skew)
+            stdev = median * value
             return stdev
 
         if(D(zScore) > D(3)):
             SD2pos = calc_stdev(2)
             SD3pos = calc_stdev(3)
 
-            SD23pos = SD3pos-SD2pos
+            SD23pos = SD3pos - SD2pos
 
-            zScore = 3+((y-SD3pos)/SD23pos)
+            zScore = 3 + ((y - SD3pos) / SD23pos)
 
             zScore = float(zScore.quantize(D('0.01')))
 
@@ -273,9 +271,9 @@ class Calculator(object):
             SD2neg = calc_stdev(-2)
             SD3neg = calc_stdev(-3)
 
-            SD23neg = SD2neg-SD3neg
+            SD23neg = SD2neg - SD3neg
 
-            zScore = -3+((y-SD3neg)/SD23neg)
+            zScore = -3 + ((y - SD3neg) / SD23neg)
             zScore = float(zScore.quantize(D('0.01')))
 
         else:
@@ -302,7 +300,7 @@ class Chart():
             return self.zScore_chart('lhfa_girls', weight, age_in_days, sex, height)
 
     def zScore_wfl_chart(self, weight=None, muac=None, age_in_days=None, sex=None, height=None):
-        if(max(age_in_days)<=731):
+        if(max(age_in_days) <= 731):
             if sex == 'M':
                 return self.zScore_chart('wfl_boys', weight, age_in_days, sex, height)
             if sex == 'F':
@@ -311,14 +309,14 @@ class Chart():
             raise Exception("MAX AGE IS MORE THEN 2 YEARS. Use zScore_wfh_full_chart")
 
     def zScore_wfh_chart(self, weight=None, muac=None, age_in_days=None, sex=None, height=None):
-        if(min(age_in_days)>=731):
+        if(min(age_in_days) >= 731):
             if sex == 'M':
                 return self.zScore_chart('wfh_boys_2_5', weight, age_in_days, sex, height)
             if sex == 'F':
                 return self.zScore_chart('wfh_girls_2_5', weight, age_in_days, sex, height)
         else:
             raise Exception("MIN AGE IS LESS THEN 2 YEARS. USE zScore_wfh_full_chart")
-    
+
     def zScore_wfh_full_chart(self, weight=None, muac=None, age_in_days=None, sex=None, height=None):
         if sex == 'M':
             return self.zScore_chart('wfh_boys_0_5', weight, age_in_days, sex, height)
@@ -327,18 +325,17 @@ class Chart():
 
     def zScore_chart(self, chart=None, weight=None, age_in_days=None, sex=None, height=None):
         if(chart == 'wfa_boys' or chart == 'wfa_girls' or chart == 'lhfa_boys' or chart == 'lhfa_girls'):
-            df = pd.read_json('tables/'+chart+'_0_5_zscores.json')
+            df = pd.read_json('tables/' + chart + '_0_5_zscores.json')
             x = df['Day'].values.tolist()
-        elif(chart=='wfl_boys' or chart =='wfl_girls'):
-            df=pd.read_json('tables/'+chart+'_0_2_zscores.json')
+        elif(chart == 'wfl_boys' or chart == 'wfl_girls'):
+            df = pd.read_json('tables/' + chart + '_0_2_zscores.json')
             x = df['Length'].values.tolist()
-        elif(chart=='wfh_boys_2_5' or chart =='wfh_girls_2_5'):
-            df=pd.read_json('tables/'+chart+'_zscores.json')
+        elif(chart == 'wfh_boys_2_5' or chart == 'wfh_girls_2_5'):
+            df = pd.read_json('tables/' + chart + '_zscores.json')
             x = df['Height'].values.tolist()
-        elif(chart=='wfh_boys_0_5' or chart =='wfh_girls_0_5'):
-            df=pd.read_json('tables/'+chart+'_zscores.json')
+        elif(chart == 'wfh_boys_0_5' or chart == 'wfh_girls_0_5'):
+            df = pd.read_json('tables/' + chart + '_zscores.json')
             x = df['Height'].values.tolist()
-
 
         a = df['SD3'].values.tolist()
         b = df['SD2'].values.tolist()
@@ -376,51 +373,48 @@ class Chart():
             for i in range(len(age_in_days)):
                 plt.text(age_in_days[i], height[i], str(Calculator().zScore_lhfa(
                     height=str(height[i]), age_in_days=str(age_in_days[i]), sex=sex)),
-                         horizontalalignment='center', color='black')
+                    horizontalalignment='center', color='black')
             plt.ylabel('Height(cm)')
             plt.xlabel('Age in days')
             plt.xticks(np.arange(0, 1865, 90))
             plt.yticks(np.arange(35, 110, 5))
             plt.title('Z score height vs age')
-        elif(chart=='wfl_boys' or chart=='wfl_girls'):
+        elif(chart == 'wfl_boys' or chart == 'wfl_girls'):
             plt.plot(height, weight, 'o-', label='z score')
             for i in range(len(height)):
                 plt.text(height[i], weight[i], str(Calculator().zScore_wfl(
-                    height=str(height[i]), age_in_days=str(age_in_days[i]), sex=sex,weight=str(weight[i]))),
-                         horizontalalignment='center', color='black')
+                    height=str(height[i]), age_in_days=str(age_in_days[i]), sex=sex, weight=str(weight[i]))),
+                    horizontalalignment='center', color='black')
             plt.ylabel('Weight(kg)')
             plt.xlabel('Height(cm)')
             plt.xticks(np.arange(45, 110, 5))
             plt.yticks(np.arange(0, 24, 2))
             plt.title('Z score weight vs length')
-        elif(chart=='wfh_boys_2_5' or chart=='wfh_girls_2_5'):
+        elif(chart == 'wfh_boys_2_5' or chart == 'wfh_girls_2_5'):
             plt.plot(height, weight, 'o-', label='z score')
             for i in range(len(height)):
                 plt.text(height[i], weight[i], str(Calculator().zScore_wfh(
-                    height=str(height[i]), age_in_days=str(age_in_days[i]), sex=sex,weight=str(weight[i]))),
-                         horizontalalignment='center', color='black')
+                    height=str(height[i]), age_in_days=str(age_in_days[i]), sex=sex, weight=str(weight[i]))),
+                    horizontalalignment='center', color='black')
             plt.ylabel('Weight(kg)')
             plt.xlabel('Height(cm)')
             plt.xticks(np.arange(65, 120, 5))
             plt.yticks(np.arange(0, 32, 2))
             plt.title('Z score weight vs length')
 
-        elif(chart=='wfh_boys_0_5' or chart=='wfh_girls_0_5'):
+        elif(chart == 'wfh_boys_0_5' or chart == 'wfh_girls_0_5'):
             plt.plot(height, weight, 'o-', label='z score')
             for i in range(len(height)):
                 plt.text(height[i], weight[i], str(Calculator().zScore_wfh(
-                    height=str(height[i]), age_in_days=str(age_in_days[i]), sex=sex,weight=str(weight[i]))),
-                         horizontalalignment='center', color='black')
+                    height=str(height[i]), age_in_days=str(age_in_days[i]), sex=sex, weight=str(weight[i]))),
+                    horizontalalignment='center', color='black')
             plt.ylabel('Weight(kg)')
             plt.xlabel('Height(cm)')
             plt.xticks(np.arange(45, 120, 5))
             plt.yticks(np.arange(0, 32, 2))
             plt.title('Z score weight vs length')
 
-
-
         plt.grid(color='r', linestyle='dashed', linewidth=0.5)
         plt.legend()
-
 
         return plt
