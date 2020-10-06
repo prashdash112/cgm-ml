@@ -2,8 +2,8 @@ from setuptools import setup, find_packages
 
 setup(
     name='cgmzscore',
-    version='1.0.20',
-    license='BSD',
+    version='1.0.27',
+    license='GPL',
 
 
     author='Prajwal Kumar Singh',
@@ -12,8 +12,10 @@ setup(
     packages=find_packages(),
     include_package_data=True,
 
+   
+
     description="z-scores of anthropometric measurements of children below 5 years  based on WHO",
-    long_description=open('README').read(),
+    long_description=open('README.rst').read(),
 
     classifiers=[
         'Intended Audience :: Healthcare Industry',
