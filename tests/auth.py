@@ -48,12 +48,12 @@ print("Save config files")
 ws.write_config()
 
 
-print("Workspace access from config with ")
+print("Workspace access from config with service principal")
 ws = Workspace.from_config(auth=svc_pr)
 
 print("Workspace access from config successful")
 
 print("Workspace Details")
-ws.get_details()
+print(ws.get_details())
 
 print("Auth One End")
