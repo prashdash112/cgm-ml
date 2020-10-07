@@ -32,11 +32,13 @@ print("Login Successful")
 
 ws = Workspace(subscription_id = args.subscription_id, 
     resource_group = args.resource_group, 
-    workspace_name = args.workspace_name)
+    workspace_name = args.workspace_name,
+    auth=svc_pr)
 
 
-
-
+print("Found workspace {} at location {}".format(ws.name, ws.location))
 
 print("Workspace Details")
 print(ws.get_details())
+
+print("Auth End")
