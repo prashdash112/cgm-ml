@@ -48,8 +48,8 @@ print("Save config files")
 ws.write_config()
 
 
-print("Workspace access from config")
-ws = Workspace.from_config()
+print("Workspace access from config with ")
+ws = Workspace.from_config(auth=svc_pr)
 
 print("Workspace access from config successful")
 
