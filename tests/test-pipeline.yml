@@ -42,7 +42,11 @@
         ls -l
         source /usr/share/miniconda/etc/profile.d/conda.sh
         conda activate CGMEvaluationPipeline
-        python auth.py -sid $(subscriptionid) -rg $(RESOURCE_GROUP) -wn $(WORKSPACE_NAME) -tid $(sptenent) -spid $(spidentity) -sppwd $(spsecret)
+        python auth.py
         echo Executing evaluation.ipynb
         papermill evaluation.ipynb evaluation_Output.ipynb --log-output --no-progress-bar -k python3
       displayName: 'Run Evaluation'
+
+    - bash: |
+        az logout
+      displayName: 'Azure Logout'
