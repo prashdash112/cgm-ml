@@ -37,7 +37,7 @@
         az account set --subscription $(subscriptionid)
       displayName: 'Azure Login'
     
-      - bash: |
+    - bash: |
         cd tests
         ls -l
         source /usr/share/miniconda/etc/profile.d/conda.sh
