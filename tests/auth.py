@@ -1,12 +1,9 @@
 import argparse
-import logging
 from azureml.core import Workspace
 #from azureml.core.authentication import ServicePrincipalAuthentication
 from azureml.core.authentication import AuthenticationException, AzureCliAuthentication
 
 def get_auth():
-    logger = logging.getLogger(__name__)
-    logger.debug("Trying to create Workspace with CLI Authentication")
     try:
         auth = AzureCliAuthentication()
         auth.get_authentication_header()
@@ -15,7 +12,7 @@ def get_auth():
     return auth
 
 
-'''
+
 # Initialize parser 
 parser = argparse.ArgumentParser() 
 #parser.add_argument("-tid", "--tenant_id", help = "Tenant Id")
@@ -29,7 +26,7 @@ parser.add_argument("-wn", "--workspace_name", help = "Workspace  Name")
 
 args = parser.parse_args()
 
-
+'''
 print("Trying to create Workspace with CLI Authentication")
 
 svc_pr = ServicePrincipalAuthentication(
@@ -77,6 +74,22 @@ print("Auth One End")
 print("CLI Auth started")
 auth =  get_auth()
 print("CLI Auth success")
+
+print("Workspace setup started")
+
+ws = Workspace(subscription_id = args.subscription_id, 
+    resource_group = args.resource_group, 
+    workspace_name = args.workspace_name,
+    auth=get_auth())
+
+print("Workspace Details")
+print(ws.get_details())
+
+print("Workspace setup success")
+
+
+ws.write_config()
+print("Saved config file")
 
 print("Trying to create Workspace with CLI Authentication")
 print("Workspace access from config using CLI Auth")
