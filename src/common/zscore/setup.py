@@ -2,17 +2,14 @@ from setuptools import setup, find_packages
 
 setup(
     name='cgmzscore',
-    version='1.0.27',
+    version='2.0.1',
     license='GPL',
-
 
     author='Prajwal Kumar Singh',
     author_email='prajwalsingh651@gmail.com',
 
     packages=find_packages(),
     include_package_data=True,
-
-   
 
     description="z-scores of anthropometric measurements of children below 5 years  based on WHO",
     long_description=open('README.rst').read(),
