@@ -42,3 +42,18 @@ print("Workspace Details")
 print(ws.get_details())
 
 print("Auth End")
+
+
+print("Save config files")
+ws.write_config()
+
+
+print("Workspace access from config")
+ws = Workspace.from_config()
+
+print("Workspace access from config successful")
+
+print("Workspace Details")
+ws.get_details()
+
+print("Auth One End")
