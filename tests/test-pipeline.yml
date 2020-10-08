@@ -11,7 +11,9 @@
 
     pool:
       vmImage: 'Ubuntu-20.04'
-    container: cgmcoreweprodacr.azurecr.io/cgmmlbuildagent:116
+    container:
+      image: cgmcoreweprodacr.azurecr.io/cgmmlbuildagent:116
+      endpoint: cgmorg-ml-acr-prod-sc
 
 
     steps:
