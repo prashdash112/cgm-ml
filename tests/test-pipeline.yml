@@ -10,7 +10,9 @@
     cancelTimeoutInMinutes: 2
 
     pool:
-      vmImage: 'Ubuntu-16.04'
+      vmImage: 'Ubuntu-20.04'
+    container: cgmcoreweprodacr.azurecr.io/cgmmlbuildagent:116
+
 
     steps:
     - script: echo Hello, Test Pipeline!
