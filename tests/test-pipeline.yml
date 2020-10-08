@@ -43,7 +43,13 @@
         source /usr/share/miniconda/etc/profile.d/conda.sh
         conda activate CGMEvaluationPipeline
         python auth.py -sid $(subscriptionid) -rg $(RESOURCE_GROUP) -wn $(WORKSPACE_NAME)
-        python setup.py
+      displayName: 'Saving Workspace Config'
+
+    - bash: |
+        cd tests
+        ls -l
+        source /usr/share/miniconda/etc/profile.d/conda.sh
+        conda activate CGMEvaluationPipeline
         echo Executing evaluation.ipynb
         papermill evaluation.ipynb evaluation_Output.ipynb --log-output --no-progress-bar -k python3
       displayName: 'Run Evaluation'
