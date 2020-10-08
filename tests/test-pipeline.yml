@@ -53,7 +53,7 @@
         echo Executing evaluation.ipynb
         papermill evaluation.ipynb evaluation_Output.ipynb --log-output --no-progress-bar -k python3
       displayName: 'Run Evaluation'
-
+  
     - bash: |
         az logout
       displayName: 'Azure Logout'
