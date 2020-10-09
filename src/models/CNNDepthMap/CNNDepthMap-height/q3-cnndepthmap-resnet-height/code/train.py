@@ -3,7 +3,6 @@ import os
 import pickle
 import random
 
-import azureml
 import cv2
 import glob2 as glob
 import numpy as np
@@ -11,7 +10,7 @@ import tensorflow as tf
 from azureml.core import Experiment, Workspace
 from azureml.core.run import Run
 from matplotlib import pyplot as plt
-from tensorflow.keras import callbacks, layers, models, optimizers
+from tensorflow.keras import callbacks
 
 from model import create_res_net
 from preprocessing import preprocess_depthmap, preprocess_targets
@@ -20,10 +19,20 @@ from utils import GradCAM, make_grid
 # Parse command line arguments.
 parser = argparse.ArgumentParser(description="Training script.")
 parser.add_argument('--split_seed', nargs=1, default=[0], type=int, help="The random seed for splitting.")
-parser.add_argument('--target_size', nargs=1, default=["180x240"], type=str, help="The target image size format WIDTHxHEIGHT.")
+parser.add_argument(
+    '--target_size',
+    nargs=1,
+    default=["180x240"],
+    type=str,
+    help="The target image size format WIDTHxHEIGHT.")
 parser.add_argument('--epochs', nargs=1, default=[1000], type=int, help="The number of epochs.")
 parser.add_argument('--batch_size', nargs=1, default=[256], type=int, help="The batch size for training.")
-parser.add_argument('--normalization_value', nargs=1, default=[7.5], type=float, help="Value for normalizing the depthmaps.")
+parser.add_argument(
+    '--normalization_value',
+    nargs=1,
+    default=[7.5],
+    type=float,
+    help="Value for normalizing the depthmaps.")
 parser.add_argument('--res_blocks', nargs=1, default=["2,5,5,2"], type=str, help="ResNet configuration.")
 parser.add_argument('--dropouts', nargs=1, default=["0.0,0.0,0.0,0.0"], type=str, help="ResNet configuration.")
 parser.add_argument('--comment', nargs=1, default=["No comment."], type=str, help="A comment.")
@@ -79,7 +88,7 @@ if(run.id.startswith("OfflineRun")):
 
     # Get dataset.
     print("Accessing dataset...")
-    if os.path.exists("dataset") == False:
+    if not os.path.exists("dataset"):
         dataset_name = "anon-depthmap-mini"
         dataset = workspace.datasets[dataset_name]
         dataset.download(target_path='dataset', overwrite=False)
@@ -95,7 +104,7 @@ else:
 # Get the QR-code paths.
 dataset_path = os.path.join(dataset_path, "scans")
 print("Dataset path:", dataset_path)
-print(glob.glob(os.path.join(dataset_path, "*"))) # Debug
+print(glob.glob(os.path.join(dataset_path, "*")))  # Debug
 print("Getting QR-code paths...")
 qrcode_paths = glob.glob(os.path.join(dataset_path, "*"))
 print("qrcode_paths: ", len(qrcode_paths))
@@ -235,8 +244,6 @@ class GRADCamLogger(tf.keras.callbacks.Callback):
         self.save_dir = save_dir
 
     def on_epoch_end(self, epoch, logs):
-        images = []
-        grad_cam = []
         # Initialize GRADCam Class
         cam = GradCAM(self.model, self.layer_name)
         count = 0
@@ -257,10 +264,11 @@ class GRADCamLogger(tf.keras.callbacks.Callback):
 
         # Overlay heatmap on original image
             heatmap = cv2.resize(heatmap, (image.shape[1], image.shape[0]))
-            implot = plt.imshow(np.squeeze(image))
+            plt.imshow(np.squeeze(image))
             plt.imshow(heatmap, alpha=.6, cmap='inferno')
             plt.axis('off')
-            plt.savefig(self.save_dir + '/epoch{}/out{}.png'.format(epoch, count), bbox_inches='tight', transparent=True, pad_inches=0)
+            plt.savefig(self.save_dir + '/epoch{}/out{}.png'.format(epoch, count),
+                        bbox_inches='tight', transparent=True, pad_inches=0)
             plt.clf()
             count += 1
         make_grid(foldername)
@@ -268,17 +276,17 @@ class GRADCamLogger(tf.keras.callbacks.Callback):
 
 # Add TensorBoard callback.
 tensorboard_callback = tf.keras.callbacks.TensorBoard(
-        log_dir="logs",
-        histogram_freq=0,
-        write_graph=True,
-        write_grads=False,
-        write_images=True,
-        embeddings_freq=0,
-        embeddings_layer_names=None,
-        embeddings_metadata=None,
-        embeddings_data=None,
-        update_freq="epoch"
-    )
+    log_dir="logs",
+    histogram_freq=0,
+    write_graph=True,
+    write_grads=False,
+    write_images=True,
+    embeddings_freq=0,
+    embeddings_layer_names=None,
+    embeddings_metadata=None,
+    embeddings_data=None,
+    update_freq="epoch"
+)
 
 training_callbacks.append(tensorboard_callback)
 
