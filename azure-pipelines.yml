@@ -36,8 +36,12 @@ steps:
     python setup.py sdist bdist_wheel
   displayName: 'Create Package'
 
-- script: |
-    cd src/common/zscore
-    pip install twine
-    python -m twine upload --skip-existing --verbose -p pypi-AgEIcHlwaS5vcmcCJDI1NDgyNDM3LWZkMzUtNDdmOC1iNmYzLTRkNjViZTY3YzljMgACOnsicGVybWlzc2lvbnMiOiB7InByb2plY3RzIjogWyJjZ216c2NvcmUiXX0sICJ2ZXJzaW9uIjogMX0AAAYgJBEqUY-kJN-lyeBqIDj8GjmK-ntsV-SpIwi5I0a1oRw -u __token__ --repository cgmzscore --repository-url https://upload.pypi.org/legacy/ dist/*.whl
-  displayName: 'Upload package'
+- task: CopyFiles@2
+  inputs:
+    targetFolder: $(Build.ArtifactStagingDirectory)
+
+- task: PublishBuildArtifacts@1
+  inputs:
+    PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+    ArtifactName: 'dist'
+    publishLocation: 'Container'
